@@ -116,11 +116,11 @@ export const FoodBudgetPage: React.FC<FoodBudgetPageProps> = ({
                             type="number" 
                             value={tempLimit}
                             onChange={(e) => setTempLimit(e.target.value)}
-                            className="flex-1 bg-black/10 border border-white/10 rounded-2xl px-4 py-3 outline-none focus:bg-black/20 font-bold text-xl placeholder-white/30 text-white"
+                            className="flex-1 min-w-0 bg-black/10 border border-white/10 rounded-2xl px-4 py-3 outline-none focus:bg-black/20 font-bold text-xl placeholder-white/30 text-white"
                             placeholder="0"
                             autoFocus
                         />
-                        <button onClick={handleSaveLimit} className="bg-white text-teal-600 px-6 rounded-2xl font-bold hover:bg-teal-50 transition-colors shadow-sm">Lưu</button>
+                        <button onClick={handleSaveLimit} className="shrink-0 bg-white text-teal-600 px-4 rounded-2xl font-bold hover:bg-teal-50 transition-colors shadow-sm whitespace-nowrap">Lưu</button>
                     </div>
                 ) : (
                     <div>
@@ -137,19 +137,19 @@ export const FoodBudgetPage: React.FC<FoodBudgetPageProps> = ({
                 
                 {/* Expected Budget */}
                 <div className="flex-1 px-2 text-center">
-                    <span className="block text-[10px] text-teal-100 uppercase tracking-wider mb-1 opacity-80">Tổng ngân sách</span>
+                    <span className="block text-[10px] text-teal-100 uppercase tracking-wider mb-1 opacity-80">Tổng</span>
                     <span className="block font-bold text-lg">{formatCurrency(accumulativeStats.totalExpectedBudget)}</span>
                 </div>
 
                 {/* Spent */}
                 <div className="flex-1 px-2 text-center">
-                    <span className="block text-[10px] text-teal-100 uppercase tracking-wider mb-1 opacity-80">Đã dùng</span>
+                    <span className="block text-[10px] text-teal-100 uppercase tracking-wider mb-1 opacity-80">Dùng</span>
                     <span className="block font-bold text-lg">{formatCurrency(accumulativeStats.totalSpent)}</span>
                 </div>
 
                 {/* Saved */}
                 <div className="flex-1 px-2 text-center">
-                    <span className="block text-[10px] text-teal-100 uppercase tracking-wider mb-1 opacity-80">Dư tích lũy</span>
+                    <span className="block text-[10px] text-teal-100 uppercase tracking-wider mb-1 opacity-80">Dư</span>
                     <div className={`font-bold text-lg flex items-center justify-center gap-1 ${accumulativeStats.totalSaved >= 0 ? 'text-white' : 'text-rose-200'}`}>
                         {accumulativeStats.totalSaved >= 0 ? <PiggyBank className="w-4 h-4" /> : <DollarSign className="w-4 h-4" />}
                         {accumulativeStats.totalSaved > 0 ? '+' : ''}{formatCurrency(accumulativeStats.totalSaved)}

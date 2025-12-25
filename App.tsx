@@ -189,7 +189,7 @@ function App() {
                       ))}
                     </Pie>
                     <Tooltip 
-                      formatter={(value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)}
+                      formatter={(value: number | string | Array<number | string>) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value))}
                       contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', backgroundColor: darkMode ? '#1e293b' : '#fff', color: darkMode ? '#fff' : '#334155' }}
                       itemStyle={{ color: darkMode ? '#e2e8f0' : '#334155' }}
                     />
