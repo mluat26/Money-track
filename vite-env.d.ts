@@ -8,9 +8,10 @@ interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
-declare namespace NodeJS {
-  interface ProcessEnv {
+// Manually declare process to fix TS2580 without installing @types/node
+declare var process: {
+  env: {
     API_KEY: string;
     [key: string]: string | undefined;
-  }
-}
+  };
+};
