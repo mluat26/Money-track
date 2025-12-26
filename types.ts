@@ -1,4 +1,6 @@
+
 export type TransactionType = 'income' | 'expense';
+export type Currency = 'VND' | 'USD' | 'IDR';
 
 export interface Transaction {
   id: string;

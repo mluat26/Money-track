@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, X, Sparkles, Utensils, Car, Home, ShoppingBag, Gamepad2, Banknote, MoreHorizontal, Shirt, Wifi, ArrowUp, ArrowDown } from 'lucide-react';
-import { CATEGORIES, Transaction, TransactionType } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, X, Sparkles, Utensils, Car, Home, ShoppingBag, Gamepad2, Banknote, MoreHorizontal, Shirt, Wifi, ArrowUp, ArrowDown, Calendar, FileText } from 'lucide-react';
+import { CATEGORIES, Transaction, TransactionType, Currency } from '../types';
 
 interface TransactionFormProps {
   onAdd: (transaction: Omit<Transaction, 'id'>) => void;
   onClose: () => void;
+  initialType: TransactionType;
+  currency?: Currency;
 }
 
 // Icon mapping helper
@@ -12,42 +14,93 @@ const IconMap: Record<string, React.ElementType> = {
   Utensils, Car, Home, ShoppingBag, Gamepad2, Banknote, MoreHorizontal, Shirt, Sparkles, Wifi
 };
 
-export const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose }) => {
+// Keyword mapping for auto-detection
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  food: ['ăn', 'uống', 'cơm', 'bún', 'phở', 'cafe', 'trà', 'nước', 'nhậu', 'bánh', 'kẹo', 'thịt', 'rau', 'siêu thị', 'mart'],
+  transport: ['xăng', 'xe', 'grab', 'be', 'gửi xe', 'bảo dưỡng', 'sửa xe', 'vé xe', 'bus'],
+  housing: ['điện', 'nước', 'nhà', 'net', 'wifi', 'gas', 'thuê'],
+  shopping: ['mua', 'shopee', 'lazada', 'tiki', 'quần', 'áo', 'giày', 'dép', 'mỹ phẩm'],
+  entertainment: ['phim', 'vé', 'game', 'netflix', 'spotify', 'du lịch', 'chơi'],
+  laundry: ['giặt', 'ủi'],
+  beauty: ['tóc', 'spa', 'nail', 'gym'],
+  services: ['sim', 'card', 'điện thoại', '4g'],
+  salary: ['lương', 'thưởng'],
+};
+
+export const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose, initialType, currency = 'VND' }) => {
   const [smartInput, setSmartInput] = useState('');
   const [amount, setAmount] = useState('');
-  const [type, setType] = useState<TransactionType>('expense');
-  const [category, setCategory] = useState('food');
+  const [type, setType] = useState<TransactionType>(initialType);
+  const [category, setCategory] = useState(initialType === 'income' ? 'salary' : 'food');
   const [note, setNote] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  const smartInputRef = useRef<HTMLInputElement>(null);
 
-  // Logic xử lý nhập nhanh: "Cơm trưa - 120k"
+  useEffect(() => {
+    // Small timeout to allow animation to finish ensuring focus works on mobile
+    const timer = setTimeout(() => {
+        if (smartInputRef.current) {
+            smartInputRef.current.focus();
+        }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const detectCategory = (text: string) => {
+      const lowerText = text.toLowerCase();
+      // Don't override if it's income
+      if (type === 'income') return;
+
+      for (const [catId, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+          if (keywords.some(k => lowerText.includes(k))) {
+              setCategory(catId);
+              return;
+          }
+      }
+  };
+
   const handleSmartInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const text = e.target.value;
     setSmartInput(text);
+    
+    // Auto-detect category based on keywords
+    detectCategory(text);
 
-    if (text.includes('-')) {
-        const parts = text.split('-');
+    // Logic tách chuỗi bằng dấu chấm "."
+    // Ví dụ: "Ăn sáng. 12k" -> Note: Ăn sáng, Amount: 12000
+    if (text.includes('.')) {
+        const parts = text.split('.');
+        // Lấy phần cuối cùng làm giá tiền, các phần trước đó nối lại làm ghi chú
         if (parts.length >= 2) {
-            const rawNote = parts[0].trim();
-            let rawAmount = parts[parts.length - 1].trim().toLowerCase();
+            const rawAmountStr = parts[parts.length - 1].trim().toLowerCase();
+            const rawNote = parts.slice(0, -1).join('.').trim();
             
-            // Xử lý 'k' = 000
-            let multiplier = 1;
-            if (rawAmount.endsWith('k')) {
-                multiplier = 1000;
-                rawAmount = rawAmount.replace('k', '');
-            }
+            // Nếu phần giá tiền rỗng (đang nhập), chưa xử lý
+            if (rawAmountStr.length > 0) {
+                 let rawAmount = rawAmountStr;
+                
+                // Xử lý 'k' = 000
+                let multiplier = 1;
+                if (rawAmount.endsWith('k')) {
+                    multiplier = 1000;
+                    rawAmount = rawAmount.replace('k', '');
+                }
 
-            // Xóa dấu chấm/phẩy nếu có
-            rawAmount = rawAmount.replace(/[,.]/g, '');
-            
-            const parsedAmount = parseFloat(rawAmount);
-            
-            if (!isNaN(parsedAmount)) {
-                setAmount((parsedAmount * multiplier).toString());
-                setNote(rawNote);
+                // Xóa các ký tự không phải số (trừ dấu chấm động nếu có, nhưng ở đây ta đơn giản hóa)
+                rawAmount = rawAmount.replace(/[^0-9.]/g, '');
+                
+                const parsedAmount = parseFloat(rawAmount);
+                
+                if (!isNaN(parsedAmount)) {
+                    setAmount((parsedAmount * multiplier).toString());
+                    if (rawNote) setNote(rawNote);
+                }
             }
         }
+    } else {
+        // Nếu chưa có dấu chấm, toàn bộ là ghi chú
+        setNote(text);
     }
   };
 
@@ -65,109 +118,154 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose
     onClose();
   };
 
+  const handleTypeSwitch = (newType: TransactionType) => {
+      setType(newType);
+      if (newType === 'income') {
+          setCategory('salary');
+      } else {
+          setCategory('food');
+      }
+  };
+
+  const getCurrencySymbol = () => {
+    switch (currency) {
+      case 'USD': return '$';
+      case 'IDR': return 'Rp';
+      default: return '₫';
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
       
-      <form onSubmit={handleSubmit} className="relative bg-white dark:bg-slate-900 w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up sm:animate-pop flex flex-col max-h-[90vh] ring-1 ring-black/5 dark:ring-white/10">
+      <form onSubmit={handleSubmit} className="relative bg-white dark:bg-slate-900 w-full max-w-md rounded-t-[2rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up sm:animate-pop flex flex-col max-h-[90vh] ring-1 ring-black/5 dark:ring-white/10">
         
-        {/* Handle bar for mobile feel */}
-        <div className="w-full flex justify-center pt-3 pb-1 sm:hidden" onClick={onClose}>
-            <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
-        </div>
+        {/* Compact Header with Segmented Control */}
+        <div className="flex justify-between items-center px-4 pt-4 pb-2">
+           {/* Segmented Control */}
+           <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => handleTypeSwitch('expense')}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${type === 'expense' ? 'bg-white dark:bg-slate-700 text-rose-500 shadow-sm' : 'text-slate-400 dark:text-slate-500'}`}
+            >
+              <ArrowDown className="w-3.5 h-3.5" /> Chi tiêu
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTypeSwitch('income')}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${type === 'income' ? 'bg-white dark:bg-slate-700 text-emerald-500 shadow-sm' : 'text-slate-400 dark:text-slate-500'}`}
+            >
+              <ArrowUp className="w-3.5 h-3.5" /> Thu nhập
+            </button>
+          </div>
 
-        <div className="flex justify-between items-center px-6 pt-4 pb-2">
-          <h2 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Thêm Giao Dịch</h2>
-          <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 dark:text-slate-500 transition-colors">
-            <X className="w-6 h-6" />
+          <button type="button" onClick={onClose} className="p-2 bg-slate-50 dark:bg-slate-800 rounded-full text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="overflow-y-auto no-scrollbar px-6 py-4 space-y-6">
+        <div className="overflow-y-auto no-scrollbar px-5 py-2 space-y-4">
           
-          {/* Smart Input - Magic Feel */}
-          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 p-4 rounded-3xl border border-emerald-100 dark:border-emerald-800/30 relative group">
-             <label className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mb-1 uppercase tracking-wider opacity-70">
-                <Sparkles className="w-3 h-3" />
-                Nhập nhanh thông minh
-             </label>
+          {/* Smart Input - Prominent */}
+          <div className="bg-gradient-to-r from-indigo-50/50 to-blue-50/50 dark:from-indigo-900/20 dark:to-blue-900/20 p-3 rounded-2xl border border-indigo-100 dark:border-indigo-800/30 relative group">
+             <div className="flex items-center gap-2 mb-1">
+                <Sparkles className="w-3 h-3 text-indigo-500 animate-pulse" />
+                <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider opacity-80">
+                    Nhập nhanh
+                </label>
+             </div>
              <input
+               ref={smartInputRef}
                type="text"
                value={smartInput}
                onChange={handleSmartInputChange}
-               placeholder='Ví dụ: "Cafe sáng - 35k"'
-               className="w-full bg-transparent text-sm font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none"
+               placeholder='Ví dụ: "Ăn sáng. 12k"'
+               className="w-full bg-transparent text-base font-medium text-slate-800 dark:text-slate-100 placeholder-indigo-300/60 dark:placeholder-indigo-400/30 outline-none"
+               autoComplete="off"
              />
-             <div className="absolute top-4 right-4 animate-pulse opacity-50">
-                <Sparkles className="w-4 h-4 text-emerald-400" />
-             </div>
           </div>
 
-          {/* Amount Input - Big & Bold */}
+          {/* Amount Input - Big & Clean */}
           <div className="flex flex-col items-center justify-center py-2">
-            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Số tiền</label>
             <div className="flex items-baseline gap-1 text-slate-800 dark:text-white">
-                <span className="text-2xl font-medium opacity-40">₫</span>
+                <span className="text-2xl font-medium opacity-40">{getCurrencySymbol()}</span>
                 <input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
-                className="w-full max-w-[200px] text-5xl font-bold text-center bg-transparent placeholder-slate-200 dark:placeholder-slate-800 outline-none caret-emerald-500"
-                autoFocus
-                required
+                className={`w-full max-w-[200px] text-5xl font-bold text-center bg-transparent placeholder-slate-200 dark:placeholder-slate-800 outline-none ${type === 'income' ? 'caret-emerald-500' : 'caret-rose-500'}`}
                 />
             </div>
           </div>
 
-          {/* Type Toggle - Pill Shape */}
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl">
-            <button
-              type="button"
-              onClick={() => { setType('expense'); setCategory('food'); }}
-              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${type === 'expense' ? 'bg-white dark:bg-slate-700 text-rose-500 shadow-sm scale-[1.02]' : 'text-slate-400 dark:text-slate-500'}`}
-            >
-              <ArrowDown className="w-4 h-4" />
-              Chi tiêu
-            </button>
-            <button
-              type="button"
-              onClick={() => { setType('income'); setCategory('salary'); }}
-              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${type === 'income' ? 'bg-white dark:bg-slate-700 text-emerald-500 shadow-sm scale-[1.02]' : 'text-slate-400 dark:text-slate-500'}`}
-            >
-              <ArrowUp className="w-4 h-4" />
-              Thu nhập
-            </button>
+          {/* Compact Date & Note Row */}
+          <div className="flex gap-2">
+             <div className="bg-slate-50 dark:bg-slate-800 rounded-xl px-3 py-2 flex items-center gap-2 flex-[2]">
+                <Calendar className="w-4 h-4 text-slate-400" />
+                <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full bg-transparent text-slate-700 dark:text-white text-xs font-bold outline-none"
+                />
+             </div>
+             <div className="bg-slate-50 dark:bg-slate-800 rounded-xl px-3 py-2 flex items-center gap-2 flex-[3]">
+                <FileText className="w-4 h-4 text-slate-400" />
+                <input
+                    type="text"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Ghi chú..."
+                    className="w-full bg-transparent text-slate-700 dark:text-white text-xs font-medium outline-none placeholder-slate-300"
+                />
+             </div>
           </div>
 
-          {/* Category Select - Soft Grids */}
+          {/* Category Select - Compact Grid & Pastel Styles */}
           <div>
-            <label className="block text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider px-1">Danh mục</label>
-            <div className="grid grid-cols-4 gap-3">
+            <label className="block text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider px-1">Danh mục</label>
+            <div className="grid grid-cols-5 gap-2">
               {Object.values(CATEGORIES)
                 .filter(cat => type === 'expense' ? cat.id !== 'salary' : cat.id === 'salary' || cat.id === 'other')
                 .map((cat) => {
                   const Icon = IconMap[cat.icon] || MoreHorizontal;
                   const isSelected = category === cat.id;
+                  
+                  // Color Logic: 
+                  // If selected: Solid color background, White icon/text
+                  // If not selected: Pastel background (10% opacity), Color icon
+                  const activeStyle = {
+                      backgroundColor: cat.color,
+                      color: 'white',
+                      boxShadow: `0 4px 12px ${cat.color}60`
+                  };
+                  
+                  const inactiveStyle = {
+                      backgroundColor: `${cat.color}15`, // ~10% opacity
+                      color: cat.color
+                  };
+
                   return (
                     <button
                       key={cat.id}
                       type="button"
                       onClick={() => setCategory(cat.id)}
-                      className={`flex flex-col items-center gap-2 p-2 rounded-2xl transition-all duration-300 ${
-                        isSelected
-                          ? 'bg-slate-800 text-white shadow-lg shadow-slate-200 dark:shadow-none scale-105'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
-                      }`}
+                      className={`flex flex-col items-center gap-1 p-1 rounded-xl transition-all duration-200 ${isSelected ? 'scale-105 z-10' : 'hover:opacity-80 scale-100'}`}
                     >
                       <div 
-                        className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-transform ${isSelected ? 'bg-white/20' : ''}`}
-                        style={{ color: isSelected ? 'white' : cat.color }}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all`}
+                        style={isSelected ? activeStyle : inactiveStyle}
                       >
-                         <Icon className="w-5 h-5" />
+                         <Icon className="w-5 h-5" strokeWidth={2.5} />
                       </div>
-                      <span className="text-[10px] font-semibold truncate w-full text-center">
+                      {/* Hide text on very small screens or show small */}
+                      <span 
+                        className={`text-[9px] font-bold truncate w-full text-center transition-colors ${isSelected ? 'text-slate-800 dark:text-white' : 'text-slate-400 dark:text-slate-600'}`}
+                      >
                         {cat.name}
                       </span>
                     </button>
@@ -175,39 +273,16 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose
               })}
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-             {/* Date */}
-            <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl px-4 py-3">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Ngày</label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-transparent text-slate-700 dark:text-white text-sm font-medium outline-none"
-              />
-            </div>
-            {/* Note */}
-            <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl px-4 py-3">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Ghi chú</label>
-              <input
-                type="text"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Mua gì đó..."
-                className="w-full bg-transparent text-slate-700 dark:text-white text-sm font-medium outline-none placeholder-slate-300"
-              />
-            </div>
-          </div>
         </div>
 
-        <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 pb-8 sm:pb-6">
+        {/* Submit Button */}
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 pb-6 sm:pb-6">
            <button
             type="submit"
-            className="w-full py-4 bg-slate-900 dark:bg-emerald-500 hover:bg-slate-800 dark:hover:bg-emerald-600 text-white font-bold rounded-2xl shadow-xl shadow-slate-200 dark:shadow-none transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+            className={`w-full py-3.5 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 active:scale-[0.98] ${type === 'income' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200 dark:shadow-none' : 'bg-slate-900 hover:bg-slate-800 shadow-slate-200 dark:shadow-none'}`}
            >
-            <Plus className="w-5 h-5" />
-            Lưu Giao Dịch
+            {type === 'income' ? <Plus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+            Lưu
            </button>
         </div>
 
