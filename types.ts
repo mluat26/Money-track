@@ -1,6 +1,6 @@
 
 export type TransactionType = 'income' | 'expense';
-export type Currency = 'VND' | 'USD' | 'IDR';
+export type Currency = 'VND' | 'USD' | 'IDR' | 'KRW';
 
 export interface Transaction {
   id: string;

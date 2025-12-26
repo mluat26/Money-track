@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Utensils, Edit2, TrendingUp, TrendingDown, Receipt, Calendar, Wallet } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Utensils, Edit2, TrendingUp, TrendingDown, Calendar, Wallet, Pencil, Check, X, Trash2, LayoutGrid, List, Receipt } from 'lucide-react';
 import { Transaction, Currency } from '../types';
 import { vibrate } from '../App';
 
@@ -8,6 +8,8 @@ interface FoodBudgetPageProps {
   dailyLimit: number;
   onSetLimit: (limit: number) => void;
   onAddTransaction: () => void;
+  onUpdateTransaction: (transaction: Transaction) => void;
+  onDeleteTransaction: (id: string) => void;
   currency: Currency;
 }
 
@@ -16,48 +18,32 @@ export const FoodBudgetPage: React.FC<FoodBudgetPageProps> = ({
   dailyLimit, 
   onSetLimit,
   onAddTransaction,
+  onUpdateTransaction,
+  onDeleteTransaction,
   currency
 }) => {
-  const [isEditing, setIsEditing] = useState(dailyLimit === 0);
+  const [isEditingLimit, setIsEditingLimit] = useState(dailyLimit === 0);
   const [tempLimit, setTempLimit] = useState(dailyLimit.toString());
-  const [isScrolled, setIsScrolled] = useState(false);
-
-  // Optimized scroll listener
-  useEffect(() => {
-    let ticking = false;
-    const handleScroll = () => {
-        if (!ticking) {
-            window.requestAnimationFrame(() => {
-                const threshold = 40;
-                if (window.scrollY > threshold && !isScrolled) {
-                    setIsScrolled(true);
-                } else if (window.scrollY <= threshold && isScrolled) {
-                    setIsScrolled(false);
-                }
-                ticking = false;
-            });
-            ticking = true;
-        }
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isScrolled]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ note: string; amount: string }>({ note: '', amount: '' });
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
   const handleSaveLimit = () => {
     vibrate(10);
     const val = parseFloat(tempLimit);
     if (!isNaN(val) && val >= 0) {
       onSetLimit(val);
-      setIsEditing(false);
+      setIsEditingLimit(false);
     }
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat(currency === 'VND' ? 'vi-VN' : (currency === 'USD' ? 'en-US' : 'id-ID'), {
+    const isNoDecimal = currency === 'VND' || currency === 'IDR' || currency === 'KRW';
+     return new Intl.NumberFormat(currency === 'VND' ? 'vi-VN' : (currency === 'USD' ? 'en-US' : (currency === 'KRW' ? 'ko-KR' : 'id-ID')), {
         style: 'currency',
         currency: currency,
-        maximumFractionDigits: currency === 'VND' || currency === 'IDR' ? 0 : 2
-    }).format(value);
+        maximumFractionDigits: isNoDecimal ? 0 : 2
+     }).format(value);
   };
 
   const formatDate = (isoString: string) => {
@@ -65,12 +51,20 @@ export const FoodBudgetPage: React.FC<FoodBudgetPageProps> = ({
     return new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' }).format(date);
   };
 
-  // Pre-filter food transactions
   const foodTransactions = useMemo(() => 
-    transactions.filter(t => t.type === 'expense' && t.category === 'food'),
+    transactions.filter(t => t.type === 'expense' && t.category === 'food').sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
   [transactions]);
 
-  // Calculate Accumulative Stats
+  // Calculate daily totals for quick lookup
+  const dailyStatsMap = useMemo(() => {
+    const stats: Record<string, number> = {};
+    foodTransactions.forEach(t => {
+        const dateKey = t.date.split('T')[0];
+        stats[dateKey] = (stats[dateKey] || 0) + t.amount;
+    });
+    return stats;
+  }, [foodTransactions]);
+
   const accumulativeStats = useMemo(() => {
     const uniqueDates = new Set(foodTransactions.map(t => t.date.split('T')[0]));
     const daysCount = uniqueDates.size;
@@ -81,174 +75,307 @@ export const FoodBudgetPage: React.FC<FoodBudgetPageProps> = ({
     return { daysCount, totalSpent, totalExpectedBudget, totalSaved };
   }, [foodTransactions, dailyLimit]);
 
-  // Group transactions by date
-  const dailyData = useMemo(() => {
-    const groups: Record<string, { transactions: Transaction[]; total: number }> = {};
+  // Group data for Grid View
+  const dailyGroups = useMemo(() => {
+    const groups: Record<string, Transaction[]> = {};
     foodTransactions.forEach(t => {
       const dateKey = t.date.split('T')[0];
-      if (!groups[dateKey]) {
-        groups[dateKey] = { transactions: [], total: 0 };
-      }
-      groups[dateKey].transactions.push(t);
-      groups[dateKey].total += t.amount;
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(t);
     });
+    return Object.entries(groups).map(([date, items]) => ({
+      date,
+      items,
+      totalSpent: dailyStatsMap[date] || 0,
+      savings: dailyLimit - (dailyStatsMap[date] || 0)
+    })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [foodTransactions, dailyStatsMap, dailyLimit]);
 
-    return Object.entries(groups)
-      .map(([date, data]) => ({
-        date,
-        items: data.transactions,
-        total: data.total,
-        savings: dailyLimit - data.total
-      }))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [foodTransactions, dailyLimit]);
+
+  // Start Inline Editing
+  const startEdit = (t: Transaction) => {
+    setEditingId(t.id);
+    setEditForm({ note: t.note, amount: t.amount.toString() });
+  };
+
+  // Cancel Inline Editing
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ note: '', amount: '' });
+  };
+
+  // Save Inline Edit
+  const saveEdit = (original: Transaction) => {
+      const newAmount = parseFloat(editForm.amount);
+      if (!isNaN(newAmount) && newAmount > 0) {
+          onUpdateTransaction({
+              ...original,
+              note: editForm.note,
+              amount: newAmount
+          });
+          setEditingId(null);
+          vibrate(10);
+      }
+  };
 
   return (
-    <div className="animate-fade-in pb-24 sm:pb-0 relative">
+    <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
       
-      {/* Sticky Header Wrapper */}
-      <div className="relative">
+      {/* Top Section: Stats Cards */}
+      <div className="xl:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-6">
           
-          {/* Expanded Header - Disappears on Scroll */}
-          <div className={`bg-gradient-to-tr from-emerald-400 to-cyan-500 dark:from-emerald-800 dark:to-cyan-800 rounded-[2.5rem] p-6 text-white shadow-xl shadow-emerald-100/50 dark:shadow-none relative overflow-hidden flex flex-col gap-6 transition-all duration-500 origin-top transform-gpu ${isScrolled ? 'opacity-0 scale-95 h-0 p-0 mb-0 overflow-hidden absolute pointer-events-none' : 'opacity-100 scale-100 mb-6'}`}>
-            <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-white/20 rounded-full blur-3xl mix-blend-overlay"></div>
-            <div className="absolute bottom-[-20%] left-[-10%] w-48 h-48 bg-white/10 rounded-full blur-2xl"></div>
-            
-            <div className="relative z-10 flex justify-between items-start">
-                <div className="flex items-center gap-3">
-                    <div className="bg-white/20 p-2.5 rounded-xl backdrop-blur-md shadow-sm border border-white/10">
-                        <Utensils className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-bold tracking-tight">Chi Tiêu Ăn Uống</h2>
-                        <div className="text-xs text-emerald-50 font-medium flex items-center gap-1.5 mt-0.5 opacity-90">
-                            <Calendar className="w-3 h-3" />
-                            {accumulativeStats.daysCount} ngày hoạt động
-                        </div>
-                    </div>
+          {/* Card 1: Budget Config */}
+          <div className="bg-gradient-to-tr from-emerald-500 to-teal-600 dark:from-emerald-800 dark:to-teal-800 rounded-[2rem] p-6 text-white shadow-lg relative overflow-hidden flex flex-col justify-between h-48">
+             <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+             <div className="relative z-10 flex justify-between items-start">
+                <div className="flex items-center gap-2.5 bg-white/20 p-2 rounded-xl backdrop-blur-md">
+                    <Utensils className="w-5 h-5" />
                 </div>
-                <button 
-                    onClick={() => { vibrate(10); setTempLimit(dailyLimit.toString()); setIsEditing(true); }}
-                    className="bg-white/10 hover:bg-white/20 p-2.5 rounded-xl transition-colors backdrop-blur-md border border-white/10"
-                >
+                <button onClick={() => { vibrate(10); setTempLimit(dailyLimit.toString()); setIsEditingLimit(true); }} className="p-2 hover:bg-white/20 rounded-full transition-colors">
                     <Edit2 className="w-4 h-4" />
                 </button>
-            </div>
-
-            {/* Total Budget Row */}
-            <div className="relative z-10">
-                {isEditing ? (
-                    <div className="w-full bg-white/20 backdrop-blur-md p-2 rounded-[20px] animate-fade-in text-white border border-white/20 flex gap-2">
-                        <input 
+             </div>
+             <div className="relative z-10">
+                 <p className="text-emerald-100 text-xs font-bold uppercase tracking-widest mb-1 opacity-90">Ngân sách / ngày</p>
+                 {isEditingLimit ? (
+                    <div className="flex gap-2">
+                         <input 
                             type="number" 
                             value={tempLimit}
                             onChange={(e) => setTempLimit(e.target.value)}
-                            className="flex-1 min-w-0 bg-transparent rounded-2xl px-4 py-2 outline-none font-bold text-2xl placeholder-white/30 text-white"
-                            placeholder="0"
+                            className="w-full bg-white/20 rounded-xl px-3 py-1 text-xl font-bold text-white placeholder-white/50 outline-none"
                             autoFocus
                         />
-                        <button onClick={handleSaveLimit} className="shrink-0 bg-white text-emerald-600 px-4 rounded-2xl font-bold hover:bg-emerald-50 transition-colors shadow-sm">Lưu</button>
+                        <button onClick={handleSaveLimit} className="bg-white text-emerald-600 px-3 rounded-xl font-bold hover:bg-emerald-50"><Check className="w-4 h-4"/></button>
                     </div>
-                ) : (
-                    <div className="bg-white/10 rounded-2xl p-4 border border-white/10 backdrop-blur-sm">
-                        <p className="text-emerald-50 text-[10px] font-bold uppercase tracking-widest mb-1 opacity-80 flex items-center gap-1.5">
-                            <Wallet className="w-3 h-3" /> Ngân sách mỗi ngày
-                        </p>
-                        <div className="text-4xl font-bold tracking-tighter truncate">{formatCurrency(dailyLimit)}</div>
-                    </div>
-                )}
-            </div>
-
-            {/* Split Stats */}
-            <div className="relative z-10 grid grid-cols-2 gap-3">
-                <div className="bg-black/10 backdrop-blur-md rounded-2xl p-4 border border-white/5 flex flex-col justify-center min-w-0">
-                    <span className="block text-[10px] text-emerald-50 uppercase tracking-wider mb-1 opacity-80">Tổng Đã ăn</span>
-                    <span className="block font-bold text-xl truncate">{formatCurrency(accumulativeStats.totalSpent)}</span>
-                </div>
-                <div className={`backdrop-blur-md rounded-2xl p-4 border border-white/5 flex flex-col justify-center min-w-0 ${accumulativeStats.totalSaved >= 0 ? 'bg-emerald-400/20' : 'bg-rose-500/20'}`}>
-                    <span className="block text-[10px] text-emerald-50 uppercase tracking-wider mb-1 opacity-80">Tổng Dư ra</span>
-                    <div className={`font-bold text-xl flex items-center gap-1 truncate ${accumulativeStats.totalSaved >= 0 ? 'text-white' : 'text-rose-100'}`}>
-                        {accumulativeStats.totalSaved >= 0 ? '+' : ''}{formatCurrency(accumulativeStats.totalSaved)}
-                    </div>
-                </div>
-            </div>
+                 ) : (
+                    <h2 className="text-4xl font-bold tracking-tight">{formatCurrency(dailyLimit)}</h2>
+                 )}
+             </div>
           </div>
 
-          {/* Minimized Header (Fixed/Sticky Green Pill) */}
-          <div className={`fixed top-4 left-4 right-4 z-40 bg-emerald-600 text-white shadow-xl shadow-emerald-900/20 rounded-full p-2 px-4 flex items-center justify-between transition-all duration-500 transform-gpu ${isScrolled ? 'translate-y-0 opacity-100' : '-translate-y-20 opacity-0 pointer-events-none'}`}>
-             <div className="flex items-center gap-3">
-                <div className="bg-white/20 p-1.5 rounded-full text-white backdrop-blur-sm">
-                    <Utensils className="w-4 h-4" />
-                </div>
-                <div className="flex flex-col">
-                    <span className="text-[9px] font-bold text-emerald-100 uppercase">Dư ra</span>
-                    <span className={`text-sm font-bold ${accumulativeStats.totalSaved >= 0 ? 'text-white' : 'text-rose-200'}`}>
-                        {accumulativeStats.totalSaved >= 0 ? '+' : ''}{formatCurrency(accumulativeStats.totalSaved)}
-                    </span>
-                </div>
-             </div>
-             <button onClick={() => { vibrate(10); onAddTransaction(); }} className="bg-white text-emerald-600 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm">
-                + Thêm
-             </button>
+          {/* Card 2: Total Spent */}
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between h-48">
+              <div className="flex items-center justify-between">
+                  <div className="bg-orange-100 dark:bg-orange-900/30 p-2 rounded-xl text-orange-600 dark:text-orange-400">
+                    <Wallet className="w-5 h-5" />
+                  </div>
+                  <span className="text-slate-400 text-xs font-bold bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">{accumulativeStats.daysCount} ngày</span>
+              </div>
+              <div>
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Tổng đã ăn</p>
+                  <h2 className="text-4xl font-bold text-slate-800 dark:text-white tracking-tight">{formatCurrency(accumulativeStats.totalSpent)}</h2>
+              </div>
+          </div>
+
+           {/* Card 3: Savings */}
+           <div className={`rounded-[2rem] p-6 border shadow-sm flex flex-col justify-between h-48 ${accumulativeStats.totalSaved >= 0 ? 'bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-800' : 'bg-rose-50 border-rose-100 dark:bg-rose-900/20 dark:border-rose-800'}`}>
+              <div className="flex items-center justify-between">
+                  <div className={`p-2 rounded-xl ${accumulativeStats.totalSaved >= 0 ? 'bg-emerald-200 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300' : 'bg-rose-200 dark:bg-rose-800 text-rose-700 dark:text-rose-300'}`}>
+                    {accumulativeStats.totalSaved >= 0 ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+                  </div>
+              </div>
+              <div>
+                  <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${accumulativeStats.totalSaved >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>Tổng Dư ra</p>
+                  <h2 className={`text-4xl font-bold tracking-tight ${accumulativeStats.totalSaved >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>
+                      {accumulativeStats.totalSaved >= 0 ? '+' : ''}{formatCurrency(accumulativeStats.totalSaved)}
+                  </h2>
+              </div>
           </div>
       </div>
 
-      {/* Daily List Cards */}
-      <div className={`space-y-4 ${isScrolled ? 'pt-2' : 'pt-2'}`}>
-        {dailyData.length === 0 ? (
-           <div className="text-center py-12 text-slate-400 dark:text-slate-500">
-              <div className="bg-white dark:bg-slate-900 w-24 h-24 rounded-full shadow-sm flex items-center justify-center mx-auto mb-4 border border-slate-100 dark:border-slate-800">
-                 <Utensils className="w-10 h-10 opacity-20 text-emerald-500" />
-              </div>
-              <p className="font-medium text-lg">Chưa có dữ liệu ăn uống.</p>
-              <button onClick={() => { vibrate(10); onAddTransaction(); }} className="mt-4 bg-emerald-50 text-emerald-600 px-6 py-3 rounded-full font-bold hover:bg-emerald-100 transition-colors">
-                 + Thêm bữa ăn
-              </button>
-           </div>
-        ) : (
-            dailyData.map((day) => (
-                <div key={day.date} className="group">
-                    <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-all duration-300 border border-white/60 dark:border-white/5 relative overflow-hidden group-hover:-translate-y-1 transform-gpu">
-                        <Receipt className="absolute -right-6 -bottom-6 w-32 h-32 text-emerald-500/5 rotate-12 pointer-events-none" />
-                        <div className="flex justify-between items-start mb-5 relative z-10 border-b border-slate-100 dark:border-slate-800 pb-3">
-                            <div>
-                                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-                                    {formatDate(day.date)}
-                                </span>
-                            </div>
-                            <div className={`flex flex-col items-end ${day.savings >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                 <div className="font-bold flex items-center gap-1.5 text-base bg-white dark:bg-slate-800 px-3 py-1 rounded-full shadow-sm">
-                                    {day.savings >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                                    {day.savings >= 0 ? '+' : ''}{formatCurrency(day.savings)}
-                                 </div>
-                            </div>
-                        </div>
-                        <div className="space-y-3 relative z-10">
-                            {day.items.map(item => (
-                                <div key={item.id} className="flex justify-between items-center py-1 group/item">
-                                    <div className="flex-1 min-w-0 pr-4">
-                                         <p className="text-slate-700 dark:text-slate-200 font-bold truncate group-hover/item:text-emerald-600 transition-colors">
-                                            {item.note || 'Ăn uống'}
-                                         </p>
-                                    </div>
-                                    <span className="font-bold text-slate-800 dark:text-white text-sm whitespace-nowrap">
-                                        {formatCurrency(item.amount)}
-                                    </span>
-                                </div>
-                            ))}
-                            <div className="flex justify-between items-center pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 border-dashed">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                    Tổng chi
-                                </span>
-                                <span className="text-lg font-bold text-slate-800 dark:text-white">
-                                    {formatCurrency(day.total)}
-                                </span>
-                            </div>
-                        </div>
+      {/* Bottom Section: Transactions */}
+      <div className="xl:col-span-12">
+        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col min-h-[500px]">
+            {/* Header Area with Toggle */}
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl sticky top-0 z-20">
+                <div className="flex items-center gap-3">
+                    <h3 className="font-bold text-xl text-slate-800 dark:text-white flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-indigo-500" />
+                        Lịch sử ăn uống
+                    </h3>
+                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                        <button 
+                            onClick={() => setViewMode('table')}
+                            className={`p-1.5 rounded-lg transition-all ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <List className="w-4 h-4" />
+                        </button>
+                        <button 
+                             onClick={() => setViewMode('grid')}
+                             className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <LayoutGrid className="w-4 h-4" />
+                        </button>
                     </div>
                 </div>
-            ))
-        )}
+                <button onClick={onAddTransaction} className="text-sm font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 px-4 py-2 rounded-xl transition-colors">
+                    + Thêm mới
+                </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-slate-50/30 dark:bg-slate-900/30">
+                {foodTransactions.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                        <Utensils className="w-12 h-12 mb-3 opacity-20" />
+                        <p>Chưa có dữ liệu</p>
+                    </div>
+                ) : (
+                    <>
+                        {/* VIEW MODE: TABLE */}
+                        {viewMode === 'table' && (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse min-w-[600px]">
+                                    <thead className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                        <tr>
+                                            <th className="px-6 py-4">Thời gian</th>
+                                            <th className="px-6 py-4">Món ăn / Ghi chú</th>
+                                            <th className="px-6 py-4 text-right">Số tiền</th>
+                                            <th className="px-6 py-4 text-right">Dư trong ngày</th>
+                                            <th className="px-6 py-4 text-center">Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                                        {foodTransactions.map((t) => {
+                                            const isEditing = editingId === t.id;
+                                            const dateKey = t.date.split('T')[0];
+                                            const dailySpent = dailyStatsMap[dateKey] || 0;
+                                            const dailySavings = dailyLimit - dailySpent;
+
+                                            return (
+                                                <tr key={t.id} className="group hover:bg-white dark:hover:bg-slate-800 transition-colors rounded-2xl">
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">{formatDate(t.date)}</span>
+                                                            <span className="text-[10px] text-slate-400">{new Date(t.date).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        {isEditing ? (
+                                                            <input 
+                                                                type="text" 
+                                                                value={editForm.note}
+                                                                onChange={(e) => setEditForm({...editForm, note: e.target.value})}
+                                                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                                                                autoFocus
+                                                            />
+                                                        ) : (
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-full bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-orange-500">
+                                                                    <Utensils className="w-4 h-4" />
+                                                                </div>
+                                                                <span className="font-medium text-slate-700 dark:text-slate-200">{t.note || 'Ăn uống'}</span>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        {isEditing ? (
+                                                            <input 
+                                                                type="number" 
+                                                                value={editForm.amount}
+                                                                onChange={(e) => setEditForm({...editForm, amount: e.target.value})}
+                                                                className="w-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-right focus:ring-2 focus:ring-emerald-500 outline-none"
+                                                            />
+                                                        ) : (
+                                                            <span className="font-bold text-slate-800 dark:text-white">{formatCurrency(t.amount)}</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                         <span className={`text-sm font-bold px-2 py-1 rounded-lg ${dailySavings >= 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'}`}>
+                                                            {dailySavings >= 0 ? '+' : ''}{formatCurrency(dailySavings)}
+                                                         </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            {isEditing ? (
+                                                                <>
+                                                                    <button onClick={() => saveEdit(t)} className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors" title="Lưu">
+                                                                        <Check className="w-4 h-4" />
+                                                                    </button>
+                                                                    <button onClick={cancelEdit} className="p-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 transition-colors" title="Hủy">
+                                                                        <X className="w-4 h-4" />
+                                                                    </button>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <button onClick={() => startEdit(t)} className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Sửa">
+                                                                        <Pencil className="w-4 h-4" />
+                                                                    </button>
+                                                                    <button onClick={() => onDeleteTransaction(t.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Xóa">
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {/* VIEW MODE: GRID */}
+                        {viewMode === 'grid' && (
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {dailyGroups.map((day) => (
+                                    <div key={day.date} className="group flex flex-col h-full">
+                                        <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-slate-200 dark:border-slate-700 relative overflow-hidden flex-1">
+                                            {/* Decorative Background Icon */}
+                                            <Receipt className="absolute -right-6 -bottom-6 w-32 h-32 text-slate-100 dark:text-slate-700/50 rotate-12 pointer-events-none" />
+                                            
+                                            {/* Header of Card */}
+                                            <div className="flex justify-between items-start mb-4 relative z-10 border-b border-slate-100 dark:border-slate-700 pb-3">
+                                                <div>
+                                                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                                                        {formatDate(day.date)}
+                                                    </span>
+                                                </div>
+                                                <div className={`flex flex-col items-end ${day.savings >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                    <div className={`font-bold flex items-center gap-1.5 text-xs px-2 py-1 rounded-full shadow-sm ${day.savings >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30' : 'bg-rose-50 dark:bg-rose-900/30'}`}>
+                                                        {day.savings >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                                                        Dư: {day.savings >= 0 ? '+' : ''}{formatCurrency(day.savings)}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* List of items in Grid */}
+                                            <div className="space-y-3 relative z-10">
+                                                {day.items.map(item => (
+                                                    <div key={item.id} className="flex justify-between items-center py-1 group/item">
+                                                        <div className="flex-1 min-w-0 pr-4">
+                                                            <p className="text-slate-700 dark:text-slate-200 font-bold text-sm truncate group-hover/item:text-emerald-600 transition-colors">
+                                                                {item.note || 'Ăn uống'}
+                                                            </p>
+                                                            <p className="text-[10px] text-slate-400">
+                                                                {new Date(item.date).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}
+                                                            </p>
+                                                        </div>
+                                                        <span className="font-bold text-slate-800 dark:text-white text-sm whitespace-nowrap">
+                                                            {formatCurrency(item.amount)}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                                <div className="flex justify-between items-center pt-3 mt-3 border-t border-slate-100 dark:border-slate-700 border-dashed">
+                                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                                        Tổng chi
+                                                    </span>
+                                                    <span className="text-lg font-bold text-slate-800 dark:text-white">
+                                                        {formatCurrency(day.totalSpent)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                             </div>
+                        )}
+                    </>
+                )}
+            </div>
+        </div>
       </div>
     </div>
   );

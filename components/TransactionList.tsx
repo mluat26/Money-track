@@ -17,10 +17,11 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
   const [filterCategory, setFilterCategory] = useState<string>('all');
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat(currency === 'VND' ? 'vi-VN' : (currency === 'USD' ? 'en-US' : 'id-ID'), {
+    const isNoDecimal = currency === 'VND' || currency === 'IDR' || currency === 'KRW';
+    return new Intl.NumberFormat(currency === 'VND' ? 'vi-VN' : (currency === 'USD' ? 'en-US' : (currency === 'KRW' ? 'ko-KR' : 'id-ID')), {
         style: 'currency',
         currency: currency,
-        maximumFractionDigits: currency === 'VND' || currency === 'IDR' ? 0 : 2
+        maximumFractionDigits: isNoDecimal ? 0 : 2
     }).format(value);
   };
 

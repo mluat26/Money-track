@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { PieChart as PieChartIcon, Wallet, Home, Moon, Sun, Utensils, Sparkles, Plus, CloudCog, Download, TrendingUp, TrendingDown, Menu, X, Coins, Settings, ChevronRight } from 'lucide-react';
+import { PieChart as PieChartIcon, Wallet, Home, Moon, Sun, Utensils, Sparkles, Plus, CloudCog, Download, TrendingUp, TrendingDown, Menu, X, Coins, Settings, LayoutDashboard, ChevronRight, LogOut, ChevronLeft, Globe } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import html2canvas from 'html2canvas';
 import { TransactionForm } from './components/TransactionForm';
@@ -43,15 +43,15 @@ function App() {
     return false;
   });
 
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
   const [formConfig, setFormConfig] = useState<{ isOpen: boolean; type: TransactionType }>({
     isOpen: false,
     type: 'expense'
   });
   
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'food-budget'>('dashboard');
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'food-budget' | 'settings'>('dashboard');
   const receiptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -75,34 +75,6 @@ function App() {
       localStorage.setItem('theme', 'light');
     }
   }, [darkMode]);
-
-  // Optimized Scroll Listener using requestAnimationFrame
-  useEffect(() => {
-    let ticking = false;
-    
-    const handleScroll = () => {
-        if (!ticking) {
-            window.requestAnimationFrame(() => {
-                const threshold = 80;
-                if (activeTab === 'dashboard') {
-                    // Only update state if the value actually changes to avoid re-renders
-                    if (window.scrollY > threshold && !isScrolled) {
-                        setIsScrolled(true);
-                    } else if (window.scrollY <= threshold && isScrolled) {
-                        setIsScrolled(false);
-                    }
-                } else {
-                    if (isScrolled) setIsScrolled(false);
-                }
-                ticking = false;
-            });
-            ticking = true;
-        }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [activeTab, isScrolled]);
 
   const syncToSheet = async (transaction: Omit<Transaction, 'id'>) => {
     const scriptUrl = localStorage.getItem('googleSheetScriptUrl');
@@ -135,6 +107,10 @@ function App() {
     syncToSheet(t);
   };
 
+  const updateTransaction = (updated: Transaction) => {
+      setTransactions(prev => prev.map(t => t.id === updated.id ? updated : t));
+  };
+
   const deleteTransaction = (id: string) => {
     vibrate(15);
     setTransactions(prev => prev.filter(t => t.id !== id));
@@ -143,14 +119,6 @@ function App() {
   const openForm = (type: TransactionType = 'expense') => {
     vibrate(10);
     setFormConfig({ isOpen: true, type });
-  };
-
-  const handleTabChange = (tab: 'dashboard' | 'food-budget') => {
-    if (activeTab !== tab) {
-        vibrate(10);
-        setActiveTab(tab);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
   };
 
   const toggleTheme = () => {
@@ -167,7 +135,7 @@ function App() {
                 scale: 2
             });
             const link = document.createElement('a');
-            link.download = `Hoa_don_chi_tieu_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.png`;
+            link.download = `Hoa_don_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.png`;
             link.href = canvas.toDataURL();
             link.click();
         } catch (error) {
@@ -200,307 +168,330 @@ function App() {
     })).filter(item => item.value > 0).sort((a,b) => b.value - a.value);
   }, [transactions]);
 
-  // Global Helper for Formatting
   const formatMoney = (amount: number) => {
-     return new Intl.NumberFormat(currency === 'VND' ? 'vi-VN' : (currency === 'USD' ? 'en-US' : 'id-ID'), {
+     const isNoDecimal = currency === 'VND' || currency === 'IDR' || currency === 'KRW';
+     return new Intl.NumberFormat(currency === 'VND' ? 'vi-VN' : (currency === 'USD' ? 'en-US' : (currency === 'KRW' ? 'ko-KR' : 'id-ID')), {
         style: 'currency',
         currency: currency,
-        maximumFractionDigits: currency === 'VND' || currency === 'IDR' ? 0 : 2
+        maximumFractionDigits: isNoDecimal ? 0 : 2
      }).format(amount);
   };
 
   return (
-    <div className={`min-h-screen relative overflow-x-hidden bg-[#f0fdf4] dark:bg-slate-950 text-slate-800 dark:text-slate-100 pb-32 sm:pb-8 transition-colors duration-500 font-sans`}>
+    <div className={`flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-300 font-sans overflow-hidden`}>
       
-      {/* Soft Pastel Background Gradients - Added transform-gpu for better performance */}
-      <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-emerald-300/30 dark:bg-emerald-600/10 rounded-full blur-[120px] -z-10 pointer-events-none mix-blend-multiply dark:mix-blend-normal transform-gpu"></div>
-      <div className="fixed top-[20%] right-[-10%] w-[400px] h-[400px] bg-teal-200/40 dark:bg-teal-600/10 rounded-full blur-[100px] -z-10 pointer-events-none mix-blend-multiply dark:mix-blend-normal transform-gpu"></div>
-      <div className="fixed bottom-[-10%] left-[20%] w-[600px] h-[600px] bg-lime-200/30 dark:bg-lime-900/10 rounded-full blur-[120px] -z-10 pointer-events-none mix-blend-multiply dark:mix-blend-normal transform-gpu"></div>
+      {/* Background Gradients */}
+      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+         <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-emerald-300/20 dark:bg-emerald-600/10 rounded-full blur-[120px]"></div>
+         <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-blue-300/20 dark:bg-blue-600/10 rounded-full blur-[120px]"></div>
+      </div>
 
-      {/* Main Header */}
-      <header className="sticky top-0 z-30 pt-4 pb-1 px-5">
-        <div className="max-w-2xl mx-auto flex justify-between items-center bg-white/60 dark:bg-slate-900/60 p-3 rounded-full shadow-sm border border-white/50 dark:border-white/5 backdrop-blur-xl transform-gpu">
-          <div className="flex items-center gap-2.5 px-2">
-            <div className="bg-emerald-500 p-2 rounded-full shadow-lg shadow-emerald-200 dark:shadow-none">
-              <Wallet className="w-5 h-5 text-white" strokeWidth={2.5} />
-            </div>
-            <h1 className="text-lg font-bold text-slate-700 dark:text-white tracking-tight">
-              MoneyTracker
-            </h1>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {/* Burger Menu Button */}
-            <button 
-                onClick={() => { vibrate(10); setIsMenuOpen(true); }}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-all hover:text-emerald-500"
-            >
-                <Menu className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </header>
+      {/* Sidebar Navigation */}
+      <aside 
+        className={`${isSidebarCollapsed ? 'w-24' : 'w-72'} transition-all duration-300 ease-in-out flex-shrink-0 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-r border-slate-200 dark:border-slate-800 z-20 flex flex-col justify-between relative`}
+      >
+          {/* Collapse Toggle Button */}
+          <button 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="absolute -right-3 top-9 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full p-1.5 shadow-sm text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors z-30"
+          >
+            {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
 
-      {/* Burger Menu Sidebar / Drawer */}
-      {isMenuOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-fade-in" onClick={() => setIsMenuOpen(false)}></div>
-            <div className="relative w-72 bg-white dark:bg-slate-900 h-full shadow-2xl p-6 animate-slide-left flex flex-col transform-gpu">
-                <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                        <Settings className="w-5 h-5 text-slate-400" /> Cài đặt
-                    </h2>
-                    <button onClick={() => setIsMenuOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full">
-                        <X className="w-5 h-5" />
-                    </button>
+          <div>
+            <div className={`p-8 flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}>
+                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-2.5 rounded-xl shadow-lg shadow-emerald-200 dark:shadow-none shrink-0">
+                    <Wallet className="w-6 h-6 text-white" strokeWidth={2.5} />
                 </div>
+                {!isSidebarCollapsed && (
+                    <h1 className="text-xl font-bold tracking-tight text-slate-800 dark:text-white whitespace-nowrap overflow-hidden">
+                        MoneyTracker
+                    </h1>
+                )}
+            </div>
 
-                <div className="space-y-6 flex-1">
-                    {/* Currency Selector */}
-                    <div>
-                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 block flex items-center gap-2">
-                            <Coins className="w-4 h-4" /> Đơn vị tiền tệ
-                        </label>
-                        <div className="space-y-2">
-                            {(['VND', 'USD', 'IDR'] as Currency[]).map((c) => (
-                                <button
-                                    key={c}
-                                    onClick={() => { vibrate(10); setCurrency(c); }}
-                                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${currency === c ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500 text-emerald-600' : 'bg-transparent border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+            <nav className="px-4 space-y-2">
+                {[
+                    { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, color: 'emerald' },
+                    { id: 'food-budget', label: 'Ăn uống', icon: Utensils, color: 'orange' }
+                ].map((item) => (
+                    <button 
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id as any)}
+                        title={isSidebarCollapsed ? item.label : ''}
+                        className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all font-semibold group relative overflow-hidden
+                            ${activeTab === item.id 
+                                ? `bg-${item.color}-50 text-${item.color}-600 dark:bg-${item.color}-900/20 dark:text-${item.color}-400` 
+                                : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'}
+                            ${isSidebarCollapsed ? 'justify-center px-0' : ''}
+                        `}
+                    >
+                        <item.icon className={`w-5 h-5 shrink-0 ${activeTab === item.id ? `text-${item.color}-600 dark:text-${item.color}-400` : ''}`} />
+                        {!isSidebarCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
+                        {activeTab === item.id && <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-${item.color}-500 rounded-r-full`}></div>}
+                    </button>
+                ))}
+
+                 <button 
+                    onClick={() => setIsSyncModalOpen(true)}
+                    title={isSidebarCollapsed ? "Đồng bộ Sheet" : ""}
+                    className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all font-semibold text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}
+                >
+                    <CloudCog className="w-5 h-5 shrink-0" />
+                    {!isSidebarCollapsed && <span className="whitespace-nowrap">Đồng bộ Sheet</span>}
+                </button>
+            </nav>
+          </div>
+
+          <div className="p-6">
+              <div className={`bg-slate-100 dark:bg-slate-800 rounded-2xl p-4 transition-all ${isSidebarCollapsed ? 'px-2 py-4 flex flex-col gap-4 items-center' : ''}`}>
+                  {!isSidebarCollapsed && (
+                    <div className="flex items-center justify-between mb-4">
+                        <span className="text-xs font-bold text-slate-400 uppercase">Cài đặt nhanh</span>
+                    </div>
+                  )}
+                  
+                  <div className={`flex items-center gap-2 ${isSidebarCollapsed ? 'flex-col' : 'justify-between'}`}>
+                      <button onClick={toggleTheme} className="p-2 bg-white dark:bg-slate-700 rounded-xl shadow-sm hover:scale-105 transition-transform shrink-0">
+                          {darkMode ? <Moon className="w-5 h-5 text-indigo-400" /> : <Sun className="w-5 h-5 text-amber-500" />}
+                      </button>
+                      
+                      {!isSidebarCollapsed && <div className="h-8 w-px bg-slate-200 dark:bg-slate-700"></div>}
+                      
+                      <div className="relative group w-full">
+                         {isSidebarCollapsed ? (
+                             <div className="w-9 h-9 flex items-center justify-center bg-white dark:bg-slate-700 rounded-xl shadow-sm text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
+                                {currency.substring(0,1)}
+                             </div>
+                         ) : (
+                            <div className="relative">
+                                <Globe className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                <select 
+                                    value={currency}
+                                    onChange={(e) => setCurrency(e.target.value as Currency)}
+                                    className="w-full appearance-none bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold py-2 pl-9 pr-8 rounded-xl shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/50 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
                                 >
-                                    <span className="font-bold">{c}</span>
-                                    {currency === c && <div className="w-2 h-2 rounded-full bg-emerald-500"></div>}
-                                </button>
-                            ))}
+                                    <option value="VND">VND (₫)</option>
+                                    <option value="USD">USD ($)</option>
+                                    <option value="IDR">IDR (Rp)</option>
+                                    <option value="KRW">KRW (₩)</option>
+                                </select>
+                                <ChevronRight className="w-3 h-3 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                            </div>
+                         )}
+                      </div>
+                  </div>
+              </div>
+          </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 scroll-smooth">
+          <div className="max-w-7xl mx-auto p-8 lg:p-12">
+            
+            {/* Header Area */}
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+                <div>
+                    <h2 className="text-3xl font-bold text-slate-800 dark:text-white mb-1">
+                        {activeTab === 'dashboard' ? 'Bảng Điều Khiển' : (activeTab === 'food-budget' ? 'Quỹ Ăn Uống' : 'Cài Đặt')}
+                    </h2>
+                    <p className="text-slate-500 dark:text-slate-400">Chào mừng trở lại, hôm nay bạn chi tiêu thế nào?</p>
+                </div>
+                <button 
+                    onClick={() => openForm('expense')}
+                    className="group relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-emerald-200/50 dark:shadow-none hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                >
+                    <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></span>
+                    <Plus className="w-5 h-5 relative z-10" /> 
+                    <span className="relative z-10">Thêm Giao Dịch</span>
+                </button>
+            </header>
+
+            {activeTab === 'dashboard' && (
+                <div className="grid grid-cols-12 gap-8 animate-fade-in">
+                    
+                    {/* Left Column (8 cols) */}
+                    <div className="col-span-12 xl:col-span-8 space-y-8">
+                        
+                        {/* Big Balance Card */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[2rem] p-8 text-white shadow-xl shadow-emerald-200/50 dark:shadow-none relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                                <div className="relative z-10 h-full flex flex-col justify-between min-h-[180px]">
+                                    <div>
+                                        <p className="text-emerald-100 font-medium mb-1 opacity-90 flex items-center gap-2">
+                                            <Wallet className="w-5 h-5" /> Tổng số dư
+                                        </p>
+                                        <h2 className="text-5xl font-bold tracking-tighter">{formatMoney(stats.balance)}</h2>
+                                    </div>
+                                    <div className="flex gap-4 mt-4">
+                                         <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10">
+                                            <span className="text-xs font-bold text-emerald-100 uppercase block mb-0.5">Thu nhập</span>
+                                            <span className="font-bold text-lg">{formatMoney(stats.income)}</span>
+                                         </div>
+                                         <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10">
+                                            <span className="text-xs font-bold text-rose-100 uppercase block mb-0.5">Chi tiêu</span>
+                                            <span className="font-bold text-lg">{formatMoney(stats.expense)}</span>
+                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Daily Insight / Quick Stats */}
+                            <div className="flex flex-col gap-6">
+                                <DailyTracker transactions={transactions} onAddClick={() => openForm('expense')} />
+                                
+                                <div className="flex-1 bg-white/70 dark:bg-slate-900/60 backdrop-blur-md rounded-[2rem] p-6 border border-white/60 dark:border-white/5 flex items-center justify-between shadow-sm">
+                                     <div>
+                                        <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mb-1">Giao dịch gần nhất</p>
+                                        <h3 className="font-bold text-xl">{transactions.length > 0 ? transactions[0].note || CATEGORIES[transactions[0].category].name : 'Chưa có'}</h3>
+                                        {transactions.length > 0 && (
+                                            <span className={`text-sm font-bold ${transactions[0].type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                {transactions[0].type === 'income' ? '+' : '-'}{formatMoney(transactions[0].amount)}
+                                            </span>
+                                        )}
+                                     </div>
+                                     <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center text-indigo-500">
+                                        <Sparkles className="w-6 h-6" />
+                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Chart Section */}
+                        {chartData.length > 0 && (
+                            <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md p-8 rounded-[2rem] border border-white/60 dark:border-white/5 shadow-sm">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h3 className="font-bold text-xl flex items-center gap-2">
+                                        <PieChartIcon className="w-5 h-5 text-indigo-500" />
+                                        Phân bố chi tiêu
+                                    </h3>
+                                    <button onClick={handleExportReceipt} className="text-sm font-bold text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                                        <Download className="w-4 h-4" /> Xuất ảnh
+                                    </button>
+                                </div>
+                                <div className="flex items-center">
+                                    <div className="h-64 w-1/3 min-w-[200px]">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={chartData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={60}
+                                                    outerRadius={80}
+                                                    paddingAngle={5}
+                                                    dataKey="value"
+                                                    stroke="none"
+                                                    cornerRadius={6}
+                                                >
+                                                    {chartData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip 
+                                                    formatter={(value: any) => formatMoney(Number(value))}
+                                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', backgroundColor: darkMode ? '#1e293b' : 'rgba(255,255,255,0.95)', color: darkMode ? '#fff' : '#334155' }}
+                                                />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                    <div className="flex-1 grid grid-cols-2 gap-4 pl-8">
+                                        {chartData.map((item, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-100 dark:hover:border-slate-700">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
+                                                    <span className="font-medium text-sm text-slate-600 dark:text-slate-300">{item.name}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                     <div className="font-bold text-sm text-slate-800 dark:text-white">{formatMoney(item.value)}</div>
+                                                     <div className="text-[10px] text-slate-400">{Math.round((item.value / stats.expense) * 100)}%</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Daily Budget Widget (Inline) */}
+                         {dailyFoodLimit === 0 && (
+                            <DailyBudget 
+                                transactions={transactions} 
+                                limit={dailyFoodLimit} 
+                                onSetLimit={setDailyFoodLimit}
+                                onClick={() => setActiveTab('food-budget')}
+                                currency={currency}
+                            />
+                        )}
+                    </div>
+
+                    {/* Right Column (4 cols) - Transactions List */}
+                    <div className="col-span-12 xl:col-span-4 space-y-6">
+                        <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md rounded-[2rem] p-6 border border-white/60 dark:border-white/5 shadow-sm h-full max-h-[calc(100vh-160px)] overflow-hidden flex flex-col">
+                            <div className="flex justify-between items-center mb-6 shrink-0">
+                                <h3 className="font-bold text-lg text-slate-700 dark:text-slate-200">Giao dịch gần đây</h3>
+                                <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg text-slate-500 font-medium">{transactions.length} items</span>
+                            </div>
+                            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar -mr-2">
+                                 <TransactionList transactions={transactions} onDelete={deleteTransaction} currency={currency} />
+                            </div>
                         </div>
                     </div>
-
-                    <hr className="border-slate-100 dark:border-slate-800" />
-
-                    {/* Other Actions */}
-                    <div className="space-y-2">
-                         <button 
-                            onClick={() => { vibrate(10); setIsSyncModalOpen(true); setIsMenuOpen(false); }}
-                            className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300 font-medium"
-                         >
-                            <span className="flex items-center gap-3"><CloudCog className="w-5 h-5 text-blue-500" /> Đồng bộ Sheet</span>
-                            <ChevronRight className="w-4 h-4 text-slate-300" />
-                         </button>
-
-                         <button 
-                            onClick={toggleTheme}
-                            className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300 font-medium"
-                         >
-                            <span className="flex items-center gap-3">
-                                {darkMode ? <Moon className="w-5 h-5 text-indigo-400" /> : <Sun className="w-5 h-5 text-amber-400" />} 
-                                Giao diện {darkMode ? 'Tối' : 'Sáng'}
-                            </span>
-                         </button>
-                    </div>
                 </div>
-                
-                <div className="text-center text-xs text-slate-400 mt-4">
-                    MoneyTracker v1.2.1
-                </div>
-            </div>
-        </div>
-      )}
+            )}
 
-      <main className="max-w-2xl mx-auto px-5 py-2 space-y-6">
-        
-        {/* Dashboard View */}
-        <div className={`${activeTab === 'dashboard' ? 'block' : 'hidden'} space-y-6 animate-fade-in`}>
-          
-          {/* Daily Tracker Banner - ONLY IN DASHBOARD */}
-          <DailyTracker transactions={transactions} onAddClick={() => openForm('expense')} />
-          
-          {/* Total Balance Card Wrapper */}
-          <div className="relative">
-              
-              {/* Main Expanded Card */}
-              <div className={`bg-gradient-to-br from-emerald-500 to-teal-600 dark:from-emerald-900 dark:to-teal-900 rounded-[2.5rem] p-8 text-white shadow-xl shadow-emerald-200/50 dark:shadow-none relative overflow-hidden group flex flex-col justify-between transition-all duration-300 origin-top transform-gpu ${isScrolled ? 'opacity-0 scale-95 h-0 p-0 mb-0 pointer-events-none overflow-hidden' : 'opacity-100 scale-100 h-[260px] mb-6'}`}>
-                
-                {/* Modern Simple Curve Line Pattern */}
-                <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 1440 320' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,160L48,176C96,192,192,224,288,213.3C384,203,480,149,576,133.3C672,117,768,139,864,154.7C960,171,1056,181,1152,165.3C1248,149,1344,107,1392,85.3L1440,64L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z' fill='white' fill-opacity='0.1'/%3E%3Cpath d='M0,224L60,213.3C120,203,240,181,360,176C480,171,600,181,720,197.3C840,213,960,235,1080,224C1200,213,1320,171,1380,149.3L1440,128' stroke='white' stroke-width='2' stroke-opacity='0.2' fill='none'/%3E%3C/svg%3E")`, backgroundSize: 'cover', backgroundPosition: 'bottom' }}></div>
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-
-                <div className="relative z-10 animate-fade-in">
-                    <p className="text-emerald-100 text-sm font-medium mb-1 opacity-90 flex items-center gap-2">
-                        <Sparkles className="w-4 h-4" /> Tổng số dư
-                    </p>
-                    <h2 className="text-5xl font-bold tracking-tighter">
-                    {formatMoney(stats.balance)}
-                    </h2>
+            {activeTab === 'food-budget' && (
+                <div className="animate-slide-in-right">
+                     <FoodBudgetPage 
+                        transactions={transactions}
+                        dailyLimit={dailyFoodLimit}
+                        onSetLimit={setDailyFoodLimit}
+                        onAddTransaction={() => openForm('expense')}
+                        onUpdateTransaction={updateTransaction}
+                        onDeleteTransaction={deleteTransaction}
+                        currency={currency}
+                    />
                 </div>
-                
-                <div className="flex gap-3 relative z-10 mt-auto">
-                  <div className="bg-white/10 dark:bg-black/20 rounded-2xl p-4 flex-1 backdrop-blur-md border border-white/10 hover:bg-white/20 transition-colors">
-                      <div className="flex items-center gap-1.5 text-emerald-100 text-[10px] uppercase font-bold tracking-wider mb-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-300"></div> Thu
-                      </div>
-                      <p className="font-semibold text-lg tracking-tight">{formatMoney(stats.income)}</p>
-                  </div>
-                  <div className="bg-white/10 dark:bg-black/20 rounded-2xl p-4 flex-1 backdrop-blur-md border border-white/10 hover:bg-white/20 transition-colors">
-                      <div className="flex items-center gap-1.5 text-rose-100 text-[10px] uppercase font-bold tracking-wider mb-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-rose-300"></div> Chi
-                      </div>
-                      <p className="font-semibold text-lg tracking-tight">{formatMoney(stats.expense)}</p>
-                  </div>
-                </div>
-              </div>
+            )}
 
-              {/* Sticky Minimized Card - Green Pill */}
-              <div className={`fixed top-4 left-4 right-4 z-40 bg-emerald-600 text-white rounded-full p-2 px-4 shadow-xl shadow-emerald-900/20 flex items-center justify-between transition-all duration-500 transform-gpu ${isScrolled ? 'translate-y-0 opacity-100' : '-translate-y-20 opacity-0 pointer-events-none'}`}>
-                 <div className="flex items-center gap-3">
-                    <div className="bg-white/20 p-1.5 rounded-full text-white backdrop-blur-sm">
-                        <Wallet className="w-4 h-4" />
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-[9px] font-bold text-emerald-100 uppercase tracking-wide">Số dư</span>
-                        <span className="text-sm font-bold text-white leading-tight">
-                            {formatMoney(stats.balance)}
-                        </span>
-                    </div>
-                 </div>
-                 <div className="flex items-center gap-3 text-xs font-medium">
-                    <span className="text-emerald-100 flex items-center gap-1"><TrendingUp className="w-3 h-3" />{new Intl.NumberFormat('en-US', { notation: "compact" }).format(stats.income)}</span>
-                    <span className="w-px h-3 bg-white/30"></span>
-                    <span className="text-rose-100 flex items-center gap-1"><TrendingDown className="w-3 h-3" />{new Intl.NumberFormat('en-US', { notation: "compact" }).format(stats.expense)}</span>
-                 </div>
-              </div>
           </div>
-          
-          {dailyFoodLimit === 0 && (
-            <DailyBudget 
-                transactions={transactions} 
-                limit={dailyFoodLimit} 
-                onSetLimit={setDailyFoodLimit}
-                onClick={() => handleTabChange('food-budget')}
-                currency={currency}
-            />
-          )}
-
-          {chartData.length > 0 && (
-            <div className="bg-white/60 dark:bg-slate-900/60 p-6 rounded-[2rem] shadow-sm backdrop-blur-xl border border-white/60 dark:border-white/5 relative overflow-hidden group transform-gpu">
-              <div className="flex items-center justify-between mb-2 relative z-10">
-                 <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                    <div className="bg-indigo-100 dark:bg-indigo-900/30 p-1.5 rounded-lg">
-                        <PieChartIcon className="w-4 h-4 text-indigo-500" />
-                    </div>
-                    Phân bố
-                 </h3>
-                 <button 
-                    onClick={handleExportReceipt}
-                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-indigo-500"
-                    title="Xuất hóa đơn"
-                 >
-                    <Download className="w-4 h-4" />
-                 </button>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <div className="h-48 w-48 relative shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={chartData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={50}
-                          outerRadius={70}
-                          paddingAngle={6}
-                          dataKey="value"
-                          stroke="none"
-                          cornerRadius={6}
-                        >
-                          {chartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(value: any) => formatMoney(Number(value))}
-                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', backgroundColor: darkMode ? '#1e293b' : 'rgba(255,255,255,0.95)', color: darkMode ? '#fff' : '#334155', padding: '8px 12px', fontSize: '12px' }}
-                          itemStyle={{ color: darkMode ? '#e2e8f0' : '#334155' }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2 justify-start flex-1">
-                     {chartData.map((item, idx) => (
-                       <div key={idx} className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300 bg-white/50 dark:bg-slate-800/50 px-3 py-1.5 rounded-full border border-white/50 dark:border-white/5">
-                          <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: item.color }}></div>
-                          {item.name}
-                          <span className="opacity-60">{Math.round((item.value / stats.expense) * 100)}%</span>
-                       </div>
-                     ))}
-                  </div>
-              </div>
-            </div>
-          )}
-
-          {/* Recent transactions */}
-          <div>
-            <div className="flex justify-between items-end mb-4 px-2">
-              <h3 className="font-bold text-slate-700 dark:text-slate-200 text-lg">Giao dịch gần đây</h3>
-              <span className="text-xs text-slate-400 font-medium">Vuốt để xem thêm</span>
-            </div>
-            <TransactionList transactions={transactions} onDelete={deleteTransaction} currency={currency} />
-          </div>
-        </div>
-
-        {/* Food Budget Detail View */}
-        {activeTab === 'food-budget' && (
-           <FoodBudgetPage 
-             transactions={transactions}
-             dailyLimit={dailyFoodLimit}
-             onSetLimit={setDailyFoodLimit}
-             onAddTransaction={() => openForm('expense')}
-             currency={currency}
-           />
-        )}
-
       </main>
 
       {/* Hidden Receipt for Export */}
       <div className="fixed top-[-9999px] left-[-9999px]">
-         <div ref={receiptRef} className="w-[380px] bg-white p-8 font-mono text-slate-800">
-             <div className="text-center mb-6">
-                 <div className="flex justify-center mb-2">
-                     <div className="bg-emerald-500 p-2 rounded-xl">
-                        <Wallet className="w-8 h-8 text-white" />
-                     </div>
-                 </div>
-                 <h2 className="text-2xl font-bold tracking-tight text-slate-900">MONEY TRACKER</h2>
-                 <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">Hóa đơn tổng hợp</p>
-                 <p className="text-xs text-slate-400 mt-1">{new Date().toLocaleString('vi-VN')}</p>
+         <div ref={receiptRef} className="w-[400px] bg-white p-10 font-mono text-slate-800 border-b-8 border-emerald-500">
+             <div className="text-center mb-8">
+                 <h2 className="text-3xl font-black tracking-tight text-slate-900 mb-2">MONEY TRACKER</h2>
+                 <p className="text-xs text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-4 inline-block">Báo cáo tài chính cá nhân</p>
+                 <p className="text-sm font-bold text-slate-400 mt-4">{new Date().toLocaleString('vi-VN')}</p>
              </div>
              
-             <div className="border-t-2 border-dashed border-slate-300 py-4 space-y-2">
-                 <div className="flex justify-between font-bold">
+             <div className="bg-slate-50 p-6 rounded-xl space-y-3 mb-8">
+                 <div className="flex justify-between font-bold text-slate-600">
                      <span>Tổng thu</span>
                      <span className="text-emerald-600">{formatMoney(stats.income)}</span>
                  </div>
-                 <div className="flex justify-between font-bold">
+                 <div className="flex justify-between font-bold text-slate-600">
                      <span>Tổng chi</span>
                      <span className="text-rose-600">{formatMoney(stats.expense)}</span>
                  </div>
-                 <div className="flex justify-between pt-2 mt-2 border-t border-slate-100">
-                     <span>Số dư</span>
-                     <span className="font-black text-lg">{formatMoney(stats.balance)}</span>
+                 <div className="flex justify-between pt-3 mt-3 border-t-2 border-slate-200 text-lg">
+                     <span className="font-black text-slate-800">SỐ DƯ</span>
+                     <span className="font-black text-slate-900">{formatMoney(stats.balance)}</span>
                  </div>
              </div>
 
-             <div className="border-t-2 border-dashed border-slate-300 pt-4 mb-4">
-                 <p className="text-xs font-bold uppercase mb-3 text-slate-500">Top Chi Tiêu</p>
-                 <div className="space-y-3">
-                     {chartData.slice(0, 3).map((item, idx) => (
+             <div className="mb-8">
+                 <p className="text-xs font-bold uppercase mb-4 text-slate-400">Phân bổ chi tiêu</p>
+                 <div className="space-y-4">
+                     {chartData.map((item, idx) => (
                          <div key={idx}>
-                             <div className="flex justify-between text-xs font-bold mb-1">
+                             <div className="flex justify-between text-xs font-bold mb-1.5">
                                  <span>{item.name}</span>
                                  <span>{formatMoney(item.value)}</span>
                              </div>
-                             <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                             <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
                                  <div className="h-full rounded-full" style={{ width: `${(item.value / stats.expense) * 100}%`, backgroundColor: item.color }}></div>
                              </div>
                          </div>
@@ -508,40 +499,10 @@ function App() {
                  </div>
              </div>
              
-             <div className="text-center mt-8 pt-4 border-t-2 border-dashed border-slate-300">
-                 <p className="text-[10px] text-slate-400 italic">Cảm ơn bạn đã sử dụng MoneyTracker</p>
-                 <p className="text-[10px] text-slate-300 mt-1">Generated by App</p>
+             <div className="text-center mt-12 pt-6 border-t border-dashed border-slate-300">
+                 <p className="text-[10px] text-slate-400 font-medium">Auto-generated by MoneyTracker Desktop</p>
              </div>
          </div>
-      </div>
-
-      {/* Modern Floating Bottom Navigation Bar - Added transform-gpu */}
-      <div className="fixed bottom-6 left-0 right-0 px-4 sm:hidden z-40 pointer-events-none flex justify-center transform-gpu">
-        <nav className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-[2.5rem] p-2 flex justify-between items-center pointer-events-auto border border-white/40 dark:border-white/5 min-w-[280px] gap-8">
-          
-          <button
-            onClick={() => handleTabChange('dashboard')}
-            className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-all duration-300 ${activeTab === 'dashboard' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
-          >
-            <Home className="w-6 h-6" strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} />
-          </button>
-
-          {/* Center FAB - INCREASED SIZE by ~12% (72px) and adjusted margin (-mt-12) */}
-          <button
-             onClick={() => openForm('expense')}
-             className="w-[72px] h-[72px] bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-300/50 dark:shadow-emerald-900/30 hover:scale-105 active:scale-95 transition-all -mt-12 border-4 border-[#f0fdf4] dark:border-slate-950"
-          >
-             <Plus className="w-9 h-9" strokeWidth={3} />
-          </button>
-
-          <button
-            onClick={() => handleTabChange('food-budget')}
-            className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-all duration-300 ${activeTab === 'food-budget' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
-          >
-            <Utensils className="w-6 h-6" strokeWidth={activeTab === 'food-budget' ? 2.5 : 2} />
-          </button>
-          
-        </nav>
       </div>
 
       <SheetSyncModal 
