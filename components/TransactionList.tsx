@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Trash2, Utensils, Car, Home, ShoppingBag, Gamepad2, Banknote, MoreHorizontal, Shirt, Wifi, Sparkles, Filter } from 'lucide-react';
 import { Transaction, CATEGORIES, Currency } from '../types';
+import { vibrate } from '../App';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -29,6 +30,11 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
     if (isoString.startsWith(today)) return 'Hôm nay';
     return new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(date);
   };
+
+  const handleFilterClick = (catId: string) => {
+    vibrate(5);
+    setFilterCategory(catId);
+  }
 
   // Get unique categories present in transactions for the filter list
   const activeCategories = useMemo(() => {
@@ -69,7 +75,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
           return (
             <button
               key={catId}
-              onClick={() => setFilterCategory(catId)}
+              onClick={() => handleFilterClick(catId)}
               className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 ${
                 isActive 
                   ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white shadow-md' 
@@ -91,8 +97,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
           return (
             <div 
               key={t.id} 
-              className="bg-white/60 dark:bg-slate-900/60 p-4 rounded-[1.5rem] shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-between group relative overflow-hidden backdrop-blur-md border border-white/60 dark:border-white/5 hover:-translate-y-0.5"
-              style={{ animationDelay: `${idx * 50}ms` }}
+              // Optimization: Reduced opacity blur and added transform-gpu
+              className="bg-white/90 dark:bg-slate-900/90 p-4 rounded-[1.5rem] shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-between group relative overflow-hidden backdrop-blur-sm border border-white/60 dark:border-white/5 hover:-translate-y-0.5 transform-gpu"
+              style={{ animationDelay: `${idx < 10 ? idx * 50 : 0}ms` }}
             >
               <div className="flex items-center gap-4 relative z-10 flex-1 min-w-0">
                 {/* Icon Box */}

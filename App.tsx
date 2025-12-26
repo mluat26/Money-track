@@ -10,6 +10,13 @@ import { SheetSyncModal } from './components/SheetSyncModal';
 import { DailyTracker } from './components/DailyTracker';
 import { Transaction, CATEGORIES, TransactionType, Currency } from './types';
 
+// Haptic feedback helper
+export const vibrate = (pattern: number | number[] = 10) => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(pattern);
+    }
+};
+
 function App() {
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('transactions');
@@ -69,18 +76,33 @@ function App() {
     }
   }, [darkMode]);
 
-  // Sticky Header Scroll Listener for Dashboard
+  // Optimized Scroll Listener using requestAnimationFrame
   useEffect(() => {
+    let ticking = false;
+    
     const handleScroll = () => {
-        if (activeTab === 'dashboard') {
-            setIsScrolled(window.scrollY > 80); // Adjusted threshold
-        } else {
-            setIsScrolled(false);
+        if (!ticking) {
+            window.requestAnimationFrame(() => {
+                const threshold = 80;
+                if (activeTab === 'dashboard') {
+                    // Only update state if the value actually changes to avoid re-renders
+                    if (window.scrollY > threshold && !isScrolled) {
+                        setIsScrolled(true);
+                    } else if (window.scrollY <= threshold && isScrolled) {
+                        setIsScrolled(false);
+                    }
+                } else {
+                    if (isScrolled) setIsScrolled(false);
+                }
+                ticking = false;
+            });
+            ticking = true;
         }
     };
-    window.addEventListener('scroll', handleScroll);
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [activeTab]);
+  }, [activeTab, isScrolled]);
 
   const syncToSheet = async (transaction: Omit<Transaction, 'id'>) => {
     const scriptUrl = localStorage.getItem('googleSheetScriptUrl');
@@ -114,14 +136,30 @@ function App() {
   };
 
   const deleteTransaction = (id: string) => {
+    vibrate(15);
     setTransactions(prev => prev.filter(t => t.id !== id));
   };
 
   const openForm = (type: TransactionType = 'expense') => {
+    vibrate(10);
     setFormConfig({ isOpen: true, type });
   };
 
+  const handleTabChange = (tab: 'dashboard' | 'food-budget') => {
+    if (activeTab !== tab) {
+        vibrate(10);
+        setActiveTab(tab);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const toggleTheme = () => {
+      vibrate(15);
+      setDarkMode(!darkMode);
+  };
+
   const handleExportReceipt = async () => {
+    vibrate(10);
     if (receiptRef.current) {
         try {
             const canvas = await html2canvas(receiptRef.current, {
@@ -174,14 +212,14 @@ function App() {
   return (
     <div className={`min-h-screen relative overflow-x-hidden bg-[#f0fdf4] dark:bg-slate-950 text-slate-800 dark:text-slate-100 pb-32 sm:pb-8 transition-colors duration-500 font-sans`}>
       
-      {/* Soft Pastel Background Gradients */}
-      <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-emerald-300/30 dark:bg-emerald-600/10 rounded-full blur-[120px] -z-10 pointer-events-none mix-blend-multiply dark:mix-blend-normal"></div>
-      <div className="fixed top-[20%] right-[-10%] w-[400px] h-[400px] bg-teal-200/40 dark:bg-teal-600/10 rounded-full blur-[100px] -z-10 pointer-events-none mix-blend-multiply dark:mix-blend-normal"></div>
-      <div className="fixed bottom-[-10%] left-[20%] w-[600px] h-[600px] bg-lime-200/30 dark:bg-lime-900/10 rounded-full blur-[120px] -z-10 pointer-events-none mix-blend-multiply dark:mix-blend-normal"></div>
+      {/* Soft Pastel Background Gradients - Added transform-gpu for better performance */}
+      <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-emerald-300/30 dark:bg-emerald-600/10 rounded-full blur-[120px] -z-10 pointer-events-none mix-blend-multiply dark:mix-blend-normal transform-gpu"></div>
+      <div className="fixed top-[20%] right-[-10%] w-[400px] h-[400px] bg-teal-200/40 dark:bg-teal-600/10 rounded-full blur-[100px] -z-10 pointer-events-none mix-blend-multiply dark:mix-blend-normal transform-gpu"></div>
+      <div className="fixed bottom-[-10%] left-[20%] w-[600px] h-[600px] bg-lime-200/30 dark:bg-lime-900/10 rounded-full blur-[120px] -z-10 pointer-events-none mix-blend-multiply dark:mix-blend-normal transform-gpu"></div>
 
       {/* Main Header */}
       <header className="sticky top-0 z-30 pt-4 pb-1 px-5">
-        <div className="max-w-2xl mx-auto flex justify-between items-center bg-white/60 dark:bg-slate-900/60 p-3 rounded-full shadow-sm border border-white/50 dark:border-white/5 backdrop-blur-xl">
+        <div className="max-w-2xl mx-auto flex justify-between items-center bg-white/60 dark:bg-slate-900/60 p-3 rounded-full shadow-sm border border-white/50 dark:border-white/5 backdrop-blur-xl transform-gpu">
           <div className="flex items-center gap-2.5 px-2">
             <div className="bg-emerald-500 p-2 rounded-full shadow-lg shadow-emerald-200 dark:shadow-none">
               <Wallet className="w-5 h-5 text-white" strokeWidth={2.5} />
@@ -194,7 +232,7 @@ function App() {
           <div className="flex items-center gap-2">
             {/* Burger Menu Button */}
             <button 
-                onClick={() => setIsMenuOpen(true)}
+                onClick={() => { vibrate(10); setIsMenuOpen(true); }}
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-all hover:text-emerald-500"
             >
                 <Menu className="w-5 h-5" />
@@ -207,7 +245,7 @@ function App() {
       {isMenuOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">
             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-fade-in" onClick={() => setIsMenuOpen(false)}></div>
-            <div className="relative w-72 bg-white dark:bg-slate-900 h-full shadow-2xl p-6 animate-slide-left flex flex-col">
+            <div className="relative w-72 bg-white dark:bg-slate-900 h-full shadow-2xl p-6 animate-slide-left flex flex-col transform-gpu">
                 <div className="flex justify-between items-center mb-8">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <Settings className="w-5 h-5 text-slate-400" /> Cài đặt
@@ -227,7 +265,7 @@ function App() {
                             {(['VND', 'USD', 'IDR'] as Currency[]).map((c) => (
                                 <button
                                     key={c}
-                                    onClick={() => setCurrency(c)}
+                                    onClick={() => { vibrate(10); setCurrency(c); }}
                                     className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${currency === c ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500 text-emerald-600' : 'bg-transparent border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                                 >
                                     <span className="font-bold">{c}</span>
@@ -242,7 +280,7 @@ function App() {
                     {/* Other Actions */}
                     <div className="space-y-2">
                          <button 
-                            onClick={() => { setIsSyncModalOpen(true); setIsMenuOpen(false); }}
+                            onClick={() => { vibrate(10); setIsSyncModalOpen(true); setIsMenuOpen(false); }}
                             className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300 font-medium"
                          >
                             <span className="flex items-center gap-3"><CloudCog className="w-5 h-5 text-blue-500" /> Đồng bộ Sheet</span>
@@ -250,7 +288,7 @@ function App() {
                          </button>
 
                          <button 
-                            onClick={() => setDarkMode(!darkMode)}
+                            onClick={toggleTheme}
                             className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300 font-medium"
                          >
                             <span className="flex items-center gap-3">
@@ -262,7 +300,7 @@ function App() {
                 </div>
                 
                 <div className="text-center text-xs text-slate-400 mt-4">
-                    MoneyTracker v1.2
+                    MoneyTracker v1.2.1
                 </div>
             </div>
         </div>
@@ -280,7 +318,7 @@ function App() {
           <div className="relative">
               
               {/* Main Expanded Card */}
-              <div className={`bg-gradient-to-br from-emerald-500 to-teal-600 dark:from-emerald-900 dark:to-teal-900 rounded-[2.5rem] p-8 text-white shadow-xl shadow-emerald-200/50 dark:shadow-none relative overflow-hidden group flex flex-col justify-between transition-all duration-300 origin-top ${isScrolled ? 'opacity-0 scale-95 h-0 p-0 mb-0 pointer-events-none overflow-hidden' : 'opacity-100 scale-100 h-[260px] mb-6'}`}>
+              <div className={`bg-gradient-to-br from-emerald-500 to-teal-600 dark:from-emerald-900 dark:to-teal-900 rounded-[2.5rem] p-8 text-white shadow-xl shadow-emerald-200/50 dark:shadow-none relative overflow-hidden group flex flex-col justify-between transition-all duration-300 origin-top transform-gpu ${isScrolled ? 'opacity-0 scale-95 h-0 p-0 mb-0 pointer-events-none overflow-hidden' : 'opacity-100 scale-100 h-[260px] mb-6'}`}>
                 
                 {/* Modern Simple Curve Line Pattern */}
                 <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 1440 320' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,160L48,176C96,192,192,224,288,213.3C384,203,480,149,576,133.3C672,117,768,139,864,154.7C960,171,1056,181,1152,165.3C1248,149,1344,107,1392,85.3L1440,64L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z' fill='white' fill-opacity='0.1'/%3E%3Cpath d='M0,224L60,213.3C120,203,240,181,360,176C480,171,600,181,720,197.3C840,213,960,235,1080,224C1200,213,1320,171,1380,149.3L1440,128' stroke='white' stroke-width='2' stroke-opacity='0.2' fill='none'/%3E%3C/svg%3E")`, backgroundSize: 'cover', backgroundPosition: 'bottom' }}></div>
@@ -312,7 +350,7 @@ function App() {
               </div>
 
               {/* Sticky Minimized Card - Green Pill */}
-              <div className={`fixed top-4 left-4 right-4 z-40 bg-emerald-600 text-white rounded-full p-2 px-4 shadow-xl shadow-emerald-900/20 flex items-center justify-between transition-all duration-500 transform ${isScrolled ? 'translate-y-0 opacity-100' : '-translate-y-20 opacity-0 pointer-events-none'}`}>
+              <div className={`fixed top-4 left-4 right-4 z-40 bg-emerald-600 text-white rounded-full p-2 px-4 shadow-xl shadow-emerald-900/20 flex items-center justify-between transition-all duration-500 transform-gpu ${isScrolled ? 'translate-y-0 opacity-100' : '-translate-y-20 opacity-0 pointer-events-none'}`}>
                  <div className="flex items-center gap-3">
                     <div className="bg-white/20 p-1.5 rounded-full text-white backdrop-blur-sm">
                         <Wallet className="w-4 h-4" />
@@ -337,13 +375,13 @@ function App() {
                 transactions={transactions} 
                 limit={dailyFoodLimit} 
                 onSetLimit={setDailyFoodLimit}
-                onClick={() => setActiveTab('food-budget')}
+                onClick={() => handleTabChange('food-budget')}
                 currency={currency}
             />
           )}
 
           {chartData.length > 0 && (
-            <div className="bg-white/60 dark:bg-slate-900/60 p-6 rounded-[2rem] shadow-sm backdrop-blur-xl border border-white/60 dark:border-white/5 relative overflow-hidden group">
+            <div className="bg-white/60 dark:bg-slate-900/60 p-6 rounded-[2rem] shadow-sm backdrop-blur-xl border border-white/60 dark:border-white/5 relative overflow-hidden group transform-gpu">
               <div className="flex items-center justify-between mb-2 relative z-10">
                  <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
                     <div className="bg-indigo-100 dark:bg-indigo-900/30 p-1.5 rounded-lg">
@@ -477,12 +515,12 @@ function App() {
          </div>
       </div>
 
-      {/* Modern Floating Bottom Navigation Bar */}
-      <div className="fixed bottom-6 left-0 right-0 px-4 sm:hidden z-40 pointer-events-none flex justify-center">
+      {/* Modern Floating Bottom Navigation Bar - Added transform-gpu */}
+      <div className="fixed bottom-6 left-0 right-0 px-4 sm:hidden z-40 pointer-events-none flex justify-center transform-gpu">
         <nav className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-[2.5rem] p-2 flex justify-between items-center pointer-events-auto border border-white/40 dark:border-white/5 min-w-[280px] gap-8">
           
           <button
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => handleTabChange('dashboard')}
             className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-all duration-300 ${activeTab === 'dashboard' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
           >
             <Home className="w-6 h-6" strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} />
@@ -497,7 +535,7 @@ function App() {
           </button>
 
           <button
-            onClick={() => setActiveTab('food-budget')}
+            onClick={() => handleTabChange('food-budget')}
             className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-all duration-300 ${activeTab === 'food-budget' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
           >
             <Utensils className="w-6 h-6" strokeWidth={activeTab === 'food-budget' ? 2.5 : 2} />

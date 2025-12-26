@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, X, Sparkles, Utensils, Car, Home, ShoppingBag, Gamepad2, Banknote, MoreHorizontal, Shirt, Wifi, ArrowUp, ArrowDown, Calendar, FileText } from 'lucide-react';
 import { CATEGORIES, Transaction, TransactionType, Currency } from '../types';
+import { vibrate } from '../App';
 
 interface TransactionFormProps {
   onAdd: (transaction: Omit<Transaction, 'id'>) => void;
@@ -107,6 +108,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount) return;
+    
+    // Double tap vibration for success
+    vibrate([10, 50, 10]);
 
     onAdd({
       amount: parseFloat(amount),
@@ -119,12 +123,20 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose
   };
 
   const handleTypeSwitch = (newType: TransactionType) => {
+      vibrate(10);
       setType(newType);
       if (newType === 'income') {
           setCategory('salary');
       } else {
           setCategory('food');
       }
+  };
+  
+  const handleCategorySelect = (catId: string) => {
+    if (category !== catId) {
+        vibrate(8);
+        setCategory(catId);
+    }
   };
 
   const getCurrencySymbol = () => {
@@ -140,7 +152,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose
       {/* Backdrop */}
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
       
-      <form onSubmit={handleSubmit} className="relative bg-white dark:bg-slate-900 w-full max-w-md rounded-t-[2rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up sm:animate-pop flex flex-col max-h-[90vh] ring-1 ring-black/5 dark:ring-white/10">
+      <form onSubmit={handleSubmit} className="relative bg-white dark:bg-slate-900 w-full max-w-md rounded-t-[2rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up sm:animate-pop flex flex-col max-h-[90vh] ring-1 ring-black/5 dark:ring-white/10 transform-gpu">
         
         {/* Compact Header with Segmented Control */}
         <div className="flex justify-between items-center px-4 pt-4 pb-2">
@@ -253,7 +265,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose
                     <button
                       key={cat.id}
                       type="button"
-                      onClick={() => setCategory(cat.id)}
+                      onClick={() => handleCategorySelect(cat.id)}
                       className={`flex flex-col items-center gap-1 p-1 rounded-xl transition-all duration-200 ${isSelected ? 'scale-105 z-10' : 'hover:opacity-80 scale-100'}`}
                     >
                       <div 

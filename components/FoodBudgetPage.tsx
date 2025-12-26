@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Utensils, Edit2, TrendingUp, TrendingDown, Receipt, Calendar, Wallet } from 'lucide-react';
 import { Transaction, Currency } from '../types';
+import { vibrate } from '../App';
 
 interface FoodBudgetPageProps {
   transactions: Transaction[];
@@ -21,16 +22,29 @@ export const FoodBudgetPage: React.FC<FoodBudgetPageProps> = ({
   const [tempLimit, setTempLimit] = useState(dailyLimit.toString());
   const [isScrolled, setIsScrolled] = useState(false);
 
-  // Scroll listener for sticky header effect
+  // Optimized scroll listener
   useEffect(() => {
+    let ticking = false;
     const handleScroll = () => {
-        setIsScrolled(window.scrollY > 40);
+        if (!ticking) {
+            window.requestAnimationFrame(() => {
+                const threshold = 40;
+                if (window.scrollY > threshold && !isScrolled) {
+                    setIsScrolled(true);
+                } else if (window.scrollY <= threshold && isScrolled) {
+                    setIsScrolled(false);
+                }
+                ticking = false;
+            });
+            ticking = true;
+        }
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [isScrolled]);
 
   const handleSaveLimit = () => {
+    vibrate(10);
     const val = parseFloat(tempLimit);
     if (!isNaN(val) && val >= 0) {
       onSetLimit(val);
@@ -96,7 +110,7 @@ export const FoodBudgetPage: React.FC<FoodBudgetPageProps> = ({
       <div className="relative">
           
           {/* Expanded Header - Disappears on Scroll */}
-          <div className={`bg-gradient-to-tr from-emerald-400 to-cyan-500 dark:from-emerald-800 dark:to-cyan-800 rounded-[2.5rem] p-6 text-white shadow-xl shadow-emerald-100/50 dark:shadow-none relative overflow-hidden flex flex-col gap-6 transition-all duration-500 origin-top ${isScrolled ? 'opacity-0 scale-95 h-0 p-0 mb-0 overflow-hidden absolute pointer-events-none' : 'opacity-100 scale-100 mb-6'}`}>
+          <div className={`bg-gradient-to-tr from-emerald-400 to-cyan-500 dark:from-emerald-800 dark:to-cyan-800 rounded-[2.5rem] p-6 text-white shadow-xl shadow-emerald-100/50 dark:shadow-none relative overflow-hidden flex flex-col gap-6 transition-all duration-500 origin-top transform-gpu ${isScrolled ? 'opacity-0 scale-95 h-0 p-0 mb-0 overflow-hidden absolute pointer-events-none' : 'opacity-100 scale-100 mb-6'}`}>
             <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-white/20 rounded-full blur-3xl mix-blend-overlay"></div>
             <div className="absolute bottom-[-20%] left-[-10%] w-48 h-48 bg-white/10 rounded-full blur-2xl"></div>
             
@@ -114,7 +128,7 @@ export const FoodBudgetPage: React.FC<FoodBudgetPageProps> = ({
                     </div>
                 </div>
                 <button 
-                    onClick={() => { setTempLimit(dailyLimit.toString()); setIsEditing(true); }}
+                    onClick={() => { vibrate(10); setTempLimit(dailyLimit.toString()); setIsEditing(true); }}
                     className="bg-white/10 hover:bg-white/20 p-2.5 rounded-xl transition-colors backdrop-blur-md border border-white/10"
                 >
                     <Edit2 className="w-4 h-4" />
@@ -161,7 +175,7 @@ export const FoodBudgetPage: React.FC<FoodBudgetPageProps> = ({
           </div>
 
           {/* Minimized Header (Fixed/Sticky Green Pill) */}
-          <div className={`fixed top-4 left-4 right-4 z-40 bg-emerald-600 text-white shadow-xl shadow-emerald-900/20 rounded-full p-2 px-4 flex items-center justify-between transition-all duration-500 transform ${isScrolled ? 'translate-y-0 opacity-100' : '-translate-y-20 opacity-0 pointer-events-none'}`}>
+          <div className={`fixed top-4 left-4 right-4 z-40 bg-emerald-600 text-white shadow-xl shadow-emerald-900/20 rounded-full p-2 px-4 flex items-center justify-between transition-all duration-500 transform-gpu ${isScrolled ? 'translate-y-0 opacity-100' : '-translate-y-20 opacity-0 pointer-events-none'}`}>
              <div className="flex items-center gap-3">
                 <div className="bg-white/20 p-1.5 rounded-full text-white backdrop-blur-sm">
                     <Utensils className="w-4 h-4" />
@@ -173,7 +187,7 @@ export const FoodBudgetPage: React.FC<FoodBudgetPageProps> = ({
                     </span>
                 </div>
              </div>
-             <button onClick={onAddTransaction} className="bg-white text-emerald-600 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm">
+             <button onClick={() => { vibrate(10); onAddTransaction(); }} className="bg-white text-emerald-600 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm">
                 + Thêm
              </button>
           </div>
@@ -187,14 +201,14 @@ export const FoodBudgetPage: React.FC<FoodBudgetPageProps> = ({
                  <Utensils className="w-10 h-10 opacity-20 text-emerald-500" />
               </div>
               <p className="font-medium text-lg">Chưa có dữ liệu ăn uống.</p>
-              <button onClick={onAddTransaction} className="mt-4 bg-emerald-50 text-emerald-600 px-6 py-3 rounded-full font-bold hover:bg-emerald-100 transition-colors">
+              <button onClick={() => { vibrate(10); onAddTransaction(); }} className="mt-4 bg-emerald-50 text-emerald-600 px-6 py-3 rounded-full font-bold hover:bg-emerald-100 transition-colors">
                  + Thêm bữa ăn
               </button>
            </div>
         ) : (
             dailyData.map((day) => (
                 <div key={day.date} className="group">
-                    <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-all duration-300 border border-white/60 dark:border-white/5 relative overflow-hidden group-hover:-translate-y-1">
+                    <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-all duration-300 border border-white/60 dark:border-white/5 relative overflow-hidden group-hover:-translate-y-1 transform-gpu">
                         <Receipt className="absolute -right-6 -bottom-6 w-32 h-32 text-emerald-500/5 rotate-12 pointer-events-none" />
                         <div className="flex justify-between items-start mb-5 relative z-10 border-b border-slate-100 dark:border-slate-800 pb-3">
                             <div>
