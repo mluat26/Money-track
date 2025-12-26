@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { PieChart as PieChartIcon, Wallet, Home, Moon, Sun, Utensils, Sparkles, Plus, CloudCog, Download, TrendingUp, TrendingDown, Menu, X, Coins, Settings, LayoutDashboard, ChevronRight, LogOut, ChevronLeft, Globe } from 'lucide-react';
+import { PieChart as PieChartIcon, Wallet, Home, Moon, Sun, Utensils, Sparkles, Plus, CloudCog, Download, TrendingUp, TrendingDown, Menu, X, Coins, Settings, LayoutDashboard, ChevronRight, LogOut, ChevronLeft, Globe, HardDrive } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import html2canvas from 'html2canvas';
 import { TransactionForm } from './components/TransactionForm';
@@ -8,6 +8,7 @@ import { DailyBudget } from './components/DailyBudget';
 import { FoodBudgetPage } from './components/FoodBudgetPage';
 import { SheetSyncModal } from './components/SheetSyncModal';
 import { DailyTracker } from './components/DailyTracker';
+import { DataManagementModal } from './components/DataManagementModal';
 import { Transaction, CATEGORIES, TransactionType, Currency } from './types';
 
 // Haptic feedback helper
@@ -51,19 +52,24 @@ function App() {
   });
   
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'food-budget' | 'settings'>('dashboard');
+  const [storageUsed, setStorageUsed] = useState<number>(0);
   const receiptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     localStorage.setItem('transactions', JSON.stringify(transactions));
+    calculateStorage();
   }, [transactions]);
 
   useEffect(() => {
     localStorage.setItem('dailyFoodLimit', dailyFoodLimit.toString());
+    calculateStorage();
   }, [dailyFoodLimit]);
 
   useEffect(() => {
     localStorage.setItem('currency', currency);
+    calculateStorage();
   }, [currency]);
 
   useEffect(() => {
@@ -74,7 +80,20 @@ function App() {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
+    calculateStorage();
   }, [darkMode]);
+
+  // Calculate local storage usage
+  const calculateStorage = () => {
+    let total = 0;
+    for (let key in localStorage) {
+        if (localStorage.hasOwnProperty(key)) {
+            // Approximation of size in bytes
+            total += new Blob([localStorage[key]]).size;
+        }
+    }
+    setStorageUsed(total);
+  };
 
   const syncToSheet = async (transaction: Omit<Transaction, 'id'>) => {
     const scriptUrl = localStorage.getItem('googleSheetScriptUrl');
@@ -114,6 +133,19 @@ function App() {
   const deleteTransaction = (id: string) => {
     vibrate(15);
     setTransactions(prev => prev.filter(t => t.id !== id));
+  };
+
+  const handleClearTransactions = () => {
+      setTransactions([]);
+      localStorage.removeItem('transactions');
+  };
+  
+  const handleClearSettings = () => {
+      setDailyFoodLimit(0);
+      setCurrency('VND');
+      localStorage.removeItem('dailyFoodLimit');
+      localStorage.removeItem('currency');
+      localStorage.removeItem('theme');
   };
 
   const openForm = (type: TransactionType = 'expense') => {
@@ -175,6 +207,11 @@ function App() {
         currency: currency,
         maximumFractionDigits: isNoDecimal ? 0 : 2
      }).format(amount);
+  };
+
+  const formatStorageSize = (bytes: number) => {
+      if (bytes < 1024) return bytes + ' B';
+      return (bytes / 1024).toFixed(1) + ' KB';
   };
 
   return (
@@ -243,7 +280,10 @@ function App() {
             </nav>
           </div>
 
-          <div className="p-6">
+          {/* Footer Area with Settings and Storage */}
+          <div className="p-6 space-y-4">
+              
+              {/* Settings Group */}
               <div className={`bg-slate-100 dark:bg-slate-800 rounded-2xl p-4 transition-all ${isSidebarCollapsed ? 'px-2 py-4 flex flex-col gap-4 items-center' : ''}`}>
                   {!isSidebarCollapsed && (
                     <div className="flex items-center justify-between mb-4">
@@ -282,6 +322,27 @@ function App() {
                       </div>
                   </div>
               </div>
+
+               {/* Storage Widget (Folder Look) */}
+               <button 
+                  onClick={() => setIsDataModalOpen(true)}
+                  className={`w-full bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30 rounded-2xl p-3 flex items-center gap-3 group hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-all cursor-pointer ${isSidebarCollapsed ? 'flex-col justify-center px-1' : ''}`}
+               >
+                   <div className="w-8 h-8 bg-blue-100 dark:bg-blue-800 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-300 shrink-0 group-hover:scale-110 transition-transform">
+                       <HardDrive className="w-4 h-4" />
+                   </div>
+                   {!isSidebarCollapsed ? (
+                       <div className="flex-1 min-w-0 text-left">
+                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Lưu trữ máy</p>
+                           <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+                               {formatStorageSize(storageUsed)}
+                           </p>
+                       </div>
+                   ) : (
+                        <span className="text-[9px] font-bold text-slate-500">{formatStorageSize(storageUsed)}</span>
+                   )}
+                   {!isSidebarCollapsed && <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-400" />}
+               </button>
           </div>
       </aside>
 
@@ -508,6 +569,13 @@ function App() {
       <SheetSyncModal 
         isOpen={isSyncModalOpen} 
         onClose={() => setIsSyncModalOpen(false)} 
+      />
+
+      <DataManagementModal 
+        isOpen={isDataModalOpen}
+        onClose={() => setIsDataModalOpen(false)}
+        onClearTransactions={handleClearTransactions}
+        onClearSettings={handleClearSettings}
       />
 
       {formConfig.isOpen && (
