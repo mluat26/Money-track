@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { Transaction } from "../types";
 
 // Use process.env.API_KEY directly as per strict guidelines
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
 export const getFinancialAdvice = async (transactions: Transaction[]): Promise<string> => {
   // API key check removed as guidelines state to assume it is pre-configured and valid.

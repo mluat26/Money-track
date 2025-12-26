@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, Sparkles, Utensils, Car, Home, ShoppingBag, Gamepad2, Banknote, MoreHorizontal, Shirt, Wifi } from 'lucide-react';
+import { Plus, X, Sparkles, Utensils, Car, Home, ShoppingBag, Gamepad2, Banknote, MoreHorizontal, Shirt, Wifi, ArrowUp, ArrowDown } from 'lucide-react';
 import { CATEGORIES, Transaction, TransactionType } from '../types';
 
 interface TransactionFormProps {
@@ -66,67 +66,84 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-900 w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up sm:animate-fade-in flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+      
+      <form onSubmit={handleSubmit} className="relative bg-white dark:bg-slate-900 w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up sm:animate-pop flex flex-col max-h-[90vh] ring-1 ring-black/5 dark:ring-white/10">
         
-        <div className="flex justify-between items-center p-5 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-xl font-bold text-slate-800 dark:text-white">Thêm Giao Dịch</h2>
-          <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 transition-colors">
+        {/* Handle bar for mobile feel */}
+        <div className="w-full flex justify-center pt-3 pb-1 sm:hidden" onClick={onClose}>
+            <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+        </div>
+
+        <div className="flex justify-between items-center px-6 pt-4 pb-2">
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Thêm Giao Dịch</h2>
+          <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 dark:text-slate-500 transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="overflow-y-auto no-scrollbar p-5 space-y-5">
+        <div className="overflow-y-auto no-scrollbar px-6 py-4 space-y-6">
           
-          {/* Smart Input */}
-          <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-2xl border border-emerald-100 dark:border-emerald-800/30">
-             <label className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-2 uppercase tracking-wide">
+          {/* Smart Input - Magic Feel */}
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 p-4 rounded-3xl border border-emerald-100 dark:border-emerald-800/30 relative group">
+             <label className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mb-1 uppercase tracking-wider opacity-70">
                 <Sparkles className="w-3 h-3" />
-                Nhập nhanh
+                Nhập nhanh thông minh
              </label>
              <input
                type="text"
                value={smartInput}
                onChange={handleSmartInputChange}
-               placeholder="Vd: Ăn trưa - 120000"
-               className="w-full bg-transparent text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none"
+               placeholder='Ví dụ: "Cafe sáng - 35k"'
+               className="w-full bg-transparent text-sm font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none"
              />
+             <div className="absolute top-4 right-4 animate-pulse opacity-50">
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+             </div>
           </div>
 
-          {/* Amount Input */}
-          <div>
-            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Số tiền (VND)</label>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0"
-              className="w-full text-4xl font-bold text-slate-800 dark:text-white border-b-2 border-slate-100 dark:border-slate-700 focus:border-emerald-500 outline-none py-2 bg-transparent placeholder-slate-200 dark:placeholder-slate-700 transition-colors"
-              required
-            />
+          {/* Amount Input - Big & Bold */}
+          <div className="flex flex-col items-center justify-center py-2">
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Số tiền</label>
+            <div className="flex items-baseline gap-1 text-slate-800 dark:text-white">
+                <span className="text-2xl font-medium opacity-40">₫</span>
+                <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0"
+                className="w-full max-w-[200px] text-5xl font-bold text-center bg-transparent placeholder-slate-200 dark:placeholder-slate-800 outline-none caret-emerald-500"
+                autoFocus
+                required
+                />
+            </div>
           </div>
 
-          {/* Type Toggle */}
+          {/* Type Toggle - Pill Shape */}
           <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl">
             <button
               type="button"
               onClick={() => { setType('expense'); setCategory('food'); }}
-              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${type === 'expense' ? 'bg-white dark:bg-slate-700 text-rose-500 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
+              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${type === 'expense' ? 'bg-white dark:bg-slate-700 text-rose-500 shadow-sm scale-[1.02]' : 'text-slate-400 dark:text-slate-500'}`}
             >
+              <ArrowDown className="w-4 h-4" />
               Chi tiêu
             </button>
             <button
               type="button"
               onClick={() => { setType('income'); setCategory('salary'); }}
-              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${type === 'income' ? 'bg-white dark:bg-slate-700 text-emerald-500 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
+              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${type === 'income' ? 'bg-white dark:bg-slate-700 text-emerald-500 shadow-sm scale-[1.02]' : 'text-slate-400 dark:text-slate-500'}`}
             >
+              <ArrowUp className="w-4 h-4" />
               Thu nhập
             </button>
           </div>
 
-          {/* Category Select with Icons */}
+          {/* Category Select - Soft Grids */}
           <div>
-            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-3">Danh mục</label>
+            <label className="block text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider px-1">Danh mục</label>
             <div className="grid grid-cols-4 gap-3">
               {Object.values(CATEGORIES)
                 .filter(cat => type === 'expense' ? cat.id !== 'salary' : cat.id === 'salary' || cat.id === 'other')
@@ -138,19 +155,19 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose
                       key={cat.id}
                       type="button"
                       onClick={() => setCategory(cat.id)}
-                      className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${
+                      className={`flex flex-col items-center gap-2 p-2 rounded-2xl transition-all duration-300 ${
                         isSelected
-                          ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30'
-                          : 'border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-emerald-200'
+                          ? 'bg-slate-800 text-white shadow-lg shadow-slate-200 dark:shadow-none scale-105'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
                       }`}
                     >
                       <div 
-                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-transform ${isSelected ? 'scale-110 shadow-md' : ''}`}
-                        style={{ backgroundColor: isSelected ? cat.color : '#f1f5f9', color: isSelected ? 'white' : '#94a3b8' }}
+                        className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-transform ${isSelected ? 'bg-white/20' : ''}`}
+                        style={{ color: isSelected ? 'white' : cat.color }}
                       >
                          <Icon className="w-5 h-5" />
                       </div>
-                      <span className={`text-[10px] font-medium truncate w-full text-center ${isSelected ? 'text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
+                      <span className="text-[10px] font-semibold truncate w-full text-center">
                         {cat.name}
                       </span>
                     </button>
@@ -161,33 +178,33 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onAdd, onClose
 
           <div className="grid grid-cols-2 gap-4">
              {/* Date */}
-            <div>
-              <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Ngày</label>
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl px-4 py-3">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Ngày</label>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-white text-sm focus:border-emerald-500 outline-none"
+                className="w-full bg-transparent text-slate-700 dark:text-white text-sm font-medium outline-none"
               />
             </div>
             {/* Note */}
-            <div>
-              <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Ghi chú</label>
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl px-4 py-3">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Ghi chú</label>
               <input
                 type="text"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Mua gì đó..."
-                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-white text-sm focus:border-emerald-500 outline-none"
+                className="w-full bg-transparent text-slate-700 dark:text-white text-sm font-medium outline-none placeholder-slate-300"
               />
             </div>
           </div>
         </div>
 
-        <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 pb-8 sm:pb-6">
            <button
             type="submit"
-            className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-2xl shadow-lg shadow-emerald-200 dark:shadow-none transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+            className="w-full py-4 bg-slate-900 dark:bg-emerald-500 hover:bg-slate-800 dark:hover:bg-emerald-600 text-white font-bold rounded-2xl shadow-xl shadow-slate-200 dark:shadow-none transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
            >
             <Plus className="w-5 h-5" />
             Lưu Giao Dịch
