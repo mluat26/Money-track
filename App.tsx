@@ -526,12 +526,12 @@ function App() {
             <Home className="w-6 h-6" strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} />
           </button>
 
-          {/* Center FAB */}
+          {/* Center FAB - INCREASED SIZE by ~12% (72px) and adjusted margin (-mt-12) */}
           <button
              onClick={() => openForm('expense')}
-             className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-300/50 dark:shadow-emerald-900/30 hover:scale-105 active:scale-95 transition-all -mt-10 border-4 border-[#f0fdf4] dark:border-slate-950"
+             className="w-[72px] h-[72px] bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-300/50 dark:shadow-emerald-900/30 hover:scale-105 active:scale-95 transition-all -mt-12 border-4 border-[#f0fdf4] dark:border-slate-950"
           >
-             <Plus className="w-8 h-8" strokeWidth={3} />
+             <Plus className="w-9 h-9" strokeWidth={3} />
           </button>
 
           <button

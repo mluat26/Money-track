@@ -2,7 +2,15 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <!-- Viewport fit=cover is crucial for iPhone Notch support -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- PWA / iOS Home Screen Optimizations -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MoneyTracker">
+    <meta name="format-detection" content="telephone=no">
+
     <title>Quản Lý Chi Tiêu</title>
     <!-- Keeping Tailwind CDN for simplicity in this setup -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -49,15 +57,31 @@
         }
       }
     </script>
+    <!-- Preconnect to fonts for faster loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-      body {
+      body, html {
         font-family: 'Inter', sans-serif;
         background-color: #f8fafc;
+        /* iOS Optimization: Disable rubber-banding/bouncing scroll globally */
+        overscroll-behavior-y: none;
+        /* Prevent accidental text selection - makes it feel like an app */
+        -webkit-user-select: none;
+        user-select: none;
         -webkit-tap-highlight-color: transparent;
-        /* iOS Optimization: Prevents delay on click and disables double-tap to zoom */
         touch-action: manipulation;
+        height: 100%;
+        width: 100%;
       }
+
+      /* Allow text selection only on inputs */
+      input, textarea {
+        -webkit-user-select: text;
+        user-select: text;
+      }
+
       /* Hide scrollbar for Chrome, Safari and Opera */
       .no-scrollbar::-webkit-scrollbar {
           display: none;
