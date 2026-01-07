@@ -288,29 +288,34 @@ function App() {
 
             {activeTab === 'dashboard' && (
                 <div className="grid grid-cols-12 gap-8 animate-fade-in">
-                    <div className="col-span-12 xl:col-span-8 space-y-8">
+                    {/* Main Stats Column - Full Width to prevent side-pushing */}
+                    <div className="col-span-12 space-y-8">
                         <div className="flex flex-col md:flex-row gap-6">
-                            <div className="flex-1 bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-emerald-500/30 relative overflow-hidden group">
-                                {/* Pattern Background */}
-                                <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-yellow-400/30 rounded-full blur-[80px] -mr-20 -mt-20 mix-blend-overlay"></div>
-                                <div className="absolute bottom-0 left-0 w-[200px] h-[200px] bg-lime-500/30 rounded-full blur-[60px] -ml-10 -mb-10 mix-blend-overlay"></div>
-                                <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }}></div>
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></div>
+                            
+                            {/* Card Wrapper: Relative Parent */}
+                            <div className="flex-1 relative rounded-[2.5rem] shadow-2xl shadow-emerald-500/20 group">
+                                {/* Background Layer (Pastel Gradient) */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-400 rounded-[2.5rem] overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-white/30 rounded-full blur-[80px] -mr-20 -mt-20 mix-blend-overlay"></div>
+                                    <div className="absolute bottom-0 left-0 w-[200px] h-[200px] bg-white/30 rounded-full blur-[60px] -ml-10 -mb-10 mix-blend-overlay"></div>
+                                    <div className="absolute inset-0 opacity-[0.1]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }}></div>
+                                </div>
 
-                                <div className="relative z-10 h-full flex flex-col justify-between min-h-[180px]">
+                                {/* Content Layer */}
+                                <div className="relative z-10 h-full flex flex-col justify-between min-h-[180px] p-8">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="text-emerald-100/80 font-medium mb-1 flex items-center gap-2"><Wallet className="w-5 h-5" /> Số dư {getFilterLabel()}</p>
-                                            <h2 className="text-5xl font-bold tracking-tighter">{formatMoney(stats.balance)}</h2>
+                                            <p className="text-white font-medium mb-1 flex items-center gap-2"><Wallet className="w-5 h-5" /> Số dư {getFilterLabel()}</p>
+                                            <h2 className="text-5xl font-bold tracking-tighter text-white">{formatMoney(stats.balance)}</h2>
                                         </div>
                                         <div className="relative">
-                                            <button onClick={() => setShowFilterDropdown(!showFilterDropdown)} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full text-sm font-bold transition-all backdrop-blur-md border border-white/10">
+                                            <button onClick={() => setShowFilterDropdown(!showFilterDropdown)} className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-full text-sm font-bold transition-all backdrop-blur-md border border-white/20">
                                                 <Calendar className="w-4 h-4" /> {getFilterLabel()}
                                             </button>
                                             {showFilterDropdown && (
-                                                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 p-2 z-50 animate-zoom-in">
+                                                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 p-2 z-50 animate-zoom-in origin-top-right">
                                                     {['all', 'week', 'month', 'year', 'custom'].map((f) => (
-                                                        <button key={f} onClick={() => { setTimeFilter(f as FilterType); setShowFilterDropdown(false); }} className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${timeFilter === f ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+                                                        <button key={f} onClick={() => { setTimeFilter(f as FilterType); setShowFilterDropdown(false); }} className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${timeFilter === f ? 'bg-emerald-600 text-white shadow-md shadow-emerald-200 dark:shadow-none' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
                                                             {f === 'all' ? 'Tất cả' : f === 'week' ? 'Tuần này' : f === 'month' ? 'Tháng này' : f === 'year' ? 'Năm này' : 'Tùy chỉnh'}
                                                         </button>
                                                     ))}
@@ -320,23 +325,24 @@ function App() {
                                     </div>
                                     {timeFilter === 'custom' && (
                                         <div className="flex gap-2 mt-4 animate-fade-in">
-                                            <input type="date" value={customRange.start} onChange={(e) => setCustomRange({...customRange, start: e.target.value})} className="bg-white/10 rounded-lg px-2 py-1 text-xs outline-none text-white placeholder-white/50 border border-white/10" />
-                                            <span className="text-white/40 flex items-center">to</span>
-                                            <input type="date" value={customRange.end} onChange={(e) => setCustomRange({...customRange, end: e.target.value})} className="bg-white/10 rounded-lg px-2 py-1 text-xs outline-none text-white placeholder-white/50 border border-white/10" />
+                                            <input type="date" value={customRange.start} onChange={(e) => setCustomRange({...customRange, start: e.target.value})} className="bg-white/20 rounded-lg px-2 py-1 text-xs outline-none text-white placeholder-white/70 border border-white/20" />
+                                            <span className="text-white/70 flex items-center">to</span>
+                                            <input type="date" value={customRange.end} onChange={(e) => setCustomRange({...customRange, end: e.target.value})} className="bg-white/20 rounded-lg px-2 py-1 text-xs outline-none text-white placeholder-white/70 border border-white/20" />
                                         </div>
                                     )}
                                     <div className="flex gap-4 mt-8">
-                                         <div className="bg-black/20 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/5 flex-1">
-                                            <span className="text-[10px] font-bold text-emerald-300 uppercase block mb-0.5 tracking-wide">Thu nhập</span>
+                                         <div className="bg-black/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/20 flex-1">
+                                            <span className="text-[10px] font-bold text-white/80 uppercase block mb-0.5 tracking-wide">Thu nhập</span>
                                             <span className="font-bold text-lg text-white">{formatMoney(stats.income)}</span>
                                          </div>
-                                         <div className="bg-black/20 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/5 flex-1">
-                                            <span className="text-[10px] font-bold text-rose-300 uppercase block mb-0.5 tracking-wide">Chi tiêu</span>
+                                         <div className="bg-black/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/20 flex-1">
+                                            <span className="text-[10px] font-bold text-white/80 uppercase block mb-0.5 tracking-wide">Chi tiêu</span>
                                             <span className="font-bold text-lg text-white">{formatMoney(stats.expense)}</span>
                                          </div>
                                     </div>
                                 </div>
                             </div>
+                            
                             <div className="w-full md:w-80 flex flex-col gap-6">
                                 <DailyTracker transactions={transactions} onAddClick={() => setFormConfig({ isOpen: true, type: 'expense' })} />
                                 <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md rounded-[2rem] p-6 border border-white/60 dark:border-white/5 shadow-sm">
@@ -406,13 +412,14 @@ function App() {
                         </div>
                     </div>
 
-                    <div className="col-span-12 xl:col-span-4 space-y-6">
-                        <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md rounded-[2rem] p-6 border border-white/60 dark:border-white/5 shadow-sm h-full max-h-[calc(100vh-160px)] overflow-hidden flex flex-col">
+                    {/* Transactions Column - Now stacked below on all screens */}
+                    <div className="col-span-12 space-y-6">
+                        <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md rounded-[2rem] p-6 border border-white/60 dark:border-white/5 shadow-sm h-full flex flex-col">
                             <div className="flex justify-between items-center mb-6 shrink-0">
                                 <h3 className="font-bold text-lg text-slate-700 dark:text-slate-200">Giao dịch {getFilterLabel()}</h3>
                                 <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg text-slate-500 font-medium">{filteredTransactions.length} items</span>
                             </div>
-                            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar -mr-2">
+                            <div className="flex-1 -mr-2 pr-2">
                                  <TransactionList transactions={filteredTransactions} onDelete={deleteTransaction} currency={currency} />
                             </div>
                         </div>
