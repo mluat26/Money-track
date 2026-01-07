@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { PieChart as PieChartIcon, Wallet, Home, Moon, Sun, Utensils, Sparkles, Plus, CloudCog, Download, TrendingUp, TrendingDown, Menu, X, Coins, Settings, LayoutDashboard, ChevronRight, LogOut, ChevronLeft, Globe, HardDrive } from 'lucide-react';
+import { PieChart as PieChartIcon, Wallet, Home, Moon, Sun, Utensils, Sparkles, Plus, CloudCog, Download, TrendingUp, TrendingDown, Menu, X, Coins, Settings, LayoutDashboard, ChevronRight, LogOut, ChevronLeft, Globe, HardDrive, Zap, Edit3, Banknote, ArrowUp } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import html2canvas from 'html2canvas';
 import { TransactionForm } from './components/TransactionForm';
@@ -9,7 +10,8 @@ import { FoodBudgetPage } from './components/FoodBudgetPage';
 import { SheetSyncModal } from './components/SheetSyncModal';
 import { DailyTracker } from './components/DailyTracker';
 import { DataManagementModal } from './components/DataManagementModal';
-import { Transaction, CATEGORIES, TransactionType, Currency } from './types';
+import { ShortcutsPage } from './components/ShortcutsPage';
+import { Transaction, CATEGORIES, TransactionType, Currency, Shortcut } from './types';
 
 // Haptic feedback helper
 export const vibrate = (pattern: number | number[] = 10) => {
@@ -18,10 +20,24 @@ export const vibrate = (pattern: number | number[] = 10) => {
     }
 };
 
+// Fix for Banknote missing from scope error by importing it from lucide-react
+const IconMap: Record<string, React.ElementType> = {
+  Utensils, Home, Zap, Sparkles, Coins, TrendingUp, Banknote
+};
+
 function App() {
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('transactions');
     return saved ? JSON.parse(saved) : [];
+  });
+
+  const [shortcuts, setShortcuts] = useState<Shortcut[]>(() => {
+    const saved = localStorage.getItem('shortcuts');
+    return saved ? JSON.parse(saved) : [
+        { id: '1', name: 'Cafe sáng', amount: 35000, category: 'food', type: 'expense' },
+        { id: '2', name: 'Gửi xe', amount: 5000, category: 'transport', type: 'expense' },
+        { id: '3', name: 'Nhận lương', amount: 15000000, category: 'salary', type: 'income' }
+    ];
   });
 
   const [dailyFoodLimit, setDailyFoodLimit] = useState<number>(() => {
@@ -53,7 +69,7 @@ function App() {
   
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'food-budget' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'food-budget' | 'shortcuts' | 'settings'>('dashboard');
   const [storageUsed, setStorageUsed] = useState<number>(0);
   const receiptRef = useRef<HTMLDivElement>(null);
 
@@ -61,6 +77,10 @@ function App() {
     localStorage.setItem('transactions', JSON.stringify(transactions));
     calculateStorage();
   }, [transactions]);
+
+  useEffect(() => {
+    localStorage.setItem('shortcuts', JSON.stringify(shortcuts));
+  }, [shortcuts]);
 
   useEffect(() => {
     localStorage.setItem('dailyFoodLimit', dailyFoodLimit.toString());
@@ -83,12 +103,10 @@ function App() {
     calculateStorage();
   }, [darkMode]);
 
-  // Calculate local storage usage
   const calculateStorage = () => {
     let total = 0;
     for (let key in localStorage) {
         if (localStorage.hasOwnProperty(key)) {
-            // Approximation of size in bytes
             total += new Blob([localStorage[key]]).size;
         }
     }
@@ -114,7 +132,6 @@ function App() {
                 currency: currency
             })
         });
-        console.log("Synced to sheet");
     } catch (e) {
         console.error("Sync failed", e);
     }
@@ -124,6 +141,17 @@ function App() {
     const newTransaction = { ...t, id: crypto.randomUUID() };
     setTransactions(prev => [newTransaction, ...prev]);
     syncToSheet(t);
+  };
+
+  const useShortcut = (s: Shortcut) => {
+    vibrate([20, 40]);
+    addTransaction({
+        amount: s.amount,
+        type: s.type,
+        category: s.category,
+        note: s.name,
+        date: new Date().toISOString()
+    });
   };
 
   const updateTransaction = (updated: Transaction) => {
@@ -172,7 +200,6 @@ function App() {
             link.click();
         } catch (error) {
             console.error("Export failed", error);
-            alert("Không thể xuất hóa đơn lúc này.");
         }
     }
   };
@@ -227,7 +254,6 @@ function App() {
       <aside 
         className={`${isSidebarCollapsed ? 'w-24' : 'w-72'} transition-all duration-300 ease-in-out flex-shrink-0 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-r border-slate-200 dark:border-slate-800 z-20 flex flex-col justify-between relative`}
       >
-          {/* Collapse Toggle Button */}
           <button 
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             className="absolute -right-3 top-9 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full p-1.5 shadow-sm text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors z-30"
@@ -237,7 +263,7 @@ function App() {
 
           <div>
             <div className={`p-8 flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}>
-                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-2.5 rounded-xl shadow-lg shadow-emerald-200 dark:shadow-none shrink-0">
+                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-2.5 rounded-xl shadow-lg shrink-0">
                     <Wallet className="w-6 h-6 text-white" strokeWidth={2.5} />
                 </div>
                 {!isSidebarCollapsed && (
@@ -250,7 +276,8 @@ function App() {
             <nav className="px-4 space-y-2">
                 {[
                     { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, color: 'emerald' },
-                    { id: 'food-budget', label: 'Ăn uống', icon: Utensils, color: 'orange' }
+                    { id: 'food-budget', label: 'Ăn uống', icon: Utensils, color: 'orange' },
+                    { id: 'shortcuts', label: 'Phím tắt', icon: Zap, color: 'amber' }
                 ].map((item) => (
                     <button 
                         key={item.id}
@@ -280,10 +307,7 @@ function App() {
             </nav>
           </div>
 
-          {/* Footer Area with Settings and Storage */}
           <div className="p-6 space-y-4">
-              
-              {/* Settings Group */}
               <div className={`bg-slate-100 dark:bg-slate-800 rounded-2xl p-4 transition-all ${isSidebarCollapsed ? 'px-2 py-4 flex flex-col gap-4 items-center' : ''}`}>
                   {!isSidebarCollapsed && (
                     <div className="flex items-center justify-between mb-4">
@@ -295,9 +319,7 @@ function App() {
                       <button onClick={toggleTheme} className="p-2 bg-white dark:bg-slate-700 rounded-xl shadow-sm hover:scale-105 transition-transform shrink-0">
                           {darkMode ? <Moon className="w-5 h-5 text-indigo-400" /> : <Sun className="w-5 h-5 text-amber-500" />}
                       </button>
-                      
                       {!isSidebarCollapsed && <div className="h-8 w-px bg-slate-200 dark:bg-slate-700"></div>}
-                      
                       <div className="relative group w-full">
                          {isSidebarCollapsed ? (
                              <div className="w-9 h-9 flex items-center justify-center bg-white dark:bg-slate-700 rounded-xl shadow-sm text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
@@ -309,7 +331,7 @@ function App() {
                                 <select 
                                     value={currency}
                                     onChange={(e) => setCurrency(e.target.value as Currency)}
-                                    className="w-full appearance-none bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold py-2 pl-9 pr-8 rounded-xl shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/50 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+                                    className="w-full appearance-none bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold py-2 pl-9 pr-8 rounded-xl shadow-sm outline-none cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
                                 >
                                     <option value="VND">VND (₫)</option>
                                     <option value="USD">USD ($)</option>
@@ -323,7 +345,6 @@ function App() {
                   </div>
               </div>
 
-               {/* Storage Widget (Folder Look) */}
                <button 
                   onClick={() => setIsDataModalOpen(true)}
                   className={`w-full bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30 rounded-2xl p-3 flex items-center gap-3 group hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-all cursor-pointer ${isSidebarCollapsed ? 'flex-col justify-center px-1' : ''}`}
@@ -331,52 +352,50 @@ function App() {
                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-800 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-300 shrink-0 group-hover:scale-110 transition-transform">
                        <HardDrive className="w-4 h-4" />
                    </div>
-                   {!isSidebarCollapsed ? (
+                   {!isSidebarCollapsed && (
                        <div className="flex-1 min-w-0 text-left">
                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Lưu trữ máy</p>
                            <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
                                {formatStorageSize(storageUsed)}
                            </p>
                        </div>
-                   ) : (
-                        <span className="text-[9px] font-bold text-slate-500">{formatStorageSize(storageUsed)}</span>
                    )}
-                   {!isSidebarCollapsed && <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-400" />}
                </button>
           </div>
       </aside>
 
-      {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 scroll-smooth">
           <div className="max-w-7xl mx-auto p-8 lg:p-12">
             
-            {/* Header Area */}
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
                 <div>
                     <h2 className="text-3xl font-bold text-slate-800 dark:text-white mb-1">
-                        {activeTab === 'dashboard' ? 'Bảng Điều Khiển' : (activeTab === 'food-budget' ? 'Quỹ Ăn Uống' : 'Cài Đặt')}
+                        {activeTab === 'dashboard' ? 'Bảng Điều Khiển' : (activeTab === 'food-budget' ? 'Quỹ Ăn Uống' : (activeTab === 'shortcuts' ? 'Quản Lý Phím Tắt' : 'Cài Đặt'))}
                     </h2>
-                    <p className="text-slate-500 dark:text-slate-400">Chào mừng trở lại, hôm nay bạn chi tiêu thế nào?</p>
+                    <p className="text-slate-500 dark:text-slate-400">Ghi lại các khoản thu chi một cách thông minh.</p>
                 </div>
-                <button 
-                    onClick={() => openForm('expense')}
-                    className="group relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-emerald-200/50 dark:shadow-none hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-                >
-                    <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></span>
-                    <Plus className="w-5 h-5 relative z-10" /> 
-                    <span className="relative z-10">Thêm Giao Dịch</span>
-                </button>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => openForm('income')}
+                        className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-5 py-3 rounded-xl font-bold hover:bg-emerald-200 transition-all flex items-center gap-2"
+                    >
+                        {/* Fix: ArrowUp imported from lucide-react */}
+                        <ArrowUp className="w-5 h-5" /> <span>Thu Nhập</span>
+                    </button>
+                    <button 
+                        onClick={() => openForm('expense')}
+                        className="bg-slate-900 text-white px-5 py-3 rounded-xl font-bold shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                    >
+                        <Plus className="w-5 h-5" /> <span>Chi Tiêu</span>
+                    </button>
+                </div>
             </header>
 
             {activeTab === 'dashboard' && (
                 <div className="grid grid-cols-12 gap-8 animate-fade-in">
-                    
-                    {/* Left Column (8 cols) */}
                     <div className="col-span-12 xl:col-span-8 space-y-8">
-                        
-                        {/* Big Balance Card */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[2rem] p-8 text-white shadow-xl shadow-emerald-200/50 dark:shadow-none relative overflow-hidden group">
+                            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[2rem] p-8 text-white shadow-xl relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                                 <div className="relative z-10 h-full flex flex-col justify-between min-h-[180px]">
                                     <div>
@@ -387,7 +406,7 @@ function App() {
                                     </div>
                                     <div className="flex gap-4 mt-4">
                                          <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10">
-                                            <span className="text-xs font-bold text-emerald-100 uppercase block mb-0.5">Thu nhập</span>
+                                            <span className="text-xs font-bold text-emerald-100 uppercase block mb-0.5">Thu nhập (Lương)</span>
                                             <span className="font-bold text-lg">{formatMoney(stats.income)}</span>
                                          </div>
                                          <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10">
@@ -398,36 +417,53 @@ function App() {
                                 </div>
                             </div>
 
-                            {/* Daily Insight / Quick Stats */}
                             <div className="flex flex-col gap-6">
                                 <DailyTracker transactions={transactions} onAddClick={() => openForm('expense')} />
                                 
-                                <div className="flex-1 bg-white/70 dark:bg-slate-900/60 backdrop-blur-md rounded-[2rem] p-6 border border-white/60 dark:border-white/5 flex items-center justify-between shadow-sm">
-                                     <div>
-                                        <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mb-1">Giao dịch gần nhất</p>
-                                        <h3 className="font-bold text-xl">{transactions.length > 0 ? transactions[0].note || CATEGORIES[transactions[0].category].name : 'Chưa có'}</h3>
-                                        {transactions.length > 0 && (
-                                            <span className={`text-sm font-bold ${transactions[0].type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                {transactions[0].type === 'income' ? '+' : '-'}{formatMoney(transactions[0].amount)}
-                                            </span>
-                                        )}
+                                <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md rounded-[2rem] p-6 border border-white/60 dark:border-white/5 shadow-sm">
+                                     <div className="flex justify-between items-center mb-4">
+                                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                            <Zap className="w-4 h-4 text-amber-500" /> Nhập nhanh
+                                        </h3>
+                                        <button 
+                                            onClick={() => setActiveTab('shortcuts')}
+                                            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 transition-colors"
+                                        >
+                                            <Edit3 className="w-4 h-4" />
+                                        </button>
                                      </div>
-                                     <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center text-indigo-500">
-                                        <Sparkles className="w-6 h-6" />
+                                     <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-1 px-1">
+                                        {shortcuts.length === 0 ? (
+                                            <div className="text-[10px] text-slate-400 italic py-2">Chưa có phím tắt</div>
+                                        ) : (
+                                            shortcuts.map(s => {
+                                                const cat = CATEGORIES[s.category] || CATEGORIES.other;
+                                                return (
+                                                    <button 
+                                                        key={s.id}
+                                                        onClick={() => useShortcut(s)}
+                                                        className="flex flex-col items-center gap-1.5 shrink-0 group"
+                                                    >
+                                                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-sm transition-all group-hover:scale-110 group-active:scale-95" style={{ backgroundColor: cat.color }}>
+                                                            {React.createElement(IconMap[cat.icon] || Zap, { className: "w-5 h-5" })}
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 truncate w-14 text-center">{s.name}</span>
+                                                    </button>
+                                                )
+                                            })
+                                        )}
                                      </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Chart Section */}
                         {chartData.length > 0 && (
                             <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md p-8 rounded-[2rem] border border-white/60 dark:border-white/5 shadow-sm">
                                 <div className="flex items-center justify-between mb-6">
                                     <h3 className="font-bold text-xl flex items-center gap-2">
-                                        <PieChartIcon className="w-5 h-5 text-indigo-500" />
-                                        Phân bố chi tiêu
+                                        <PieChartIcon className="w-5 h-5 text-indigo-500" /> Phân bố chi tiêu
                                     </h3>
-                                    <button onClick={handleExportReceipt} className="text-sm font-bold text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                                    <button onClick={handleExportReceipt} className="text-sm font-bold text-indigo-500 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
                                         <Download className="w-4 h-4" /> Xuất ảnh
                                     </button>
                                 </div>
@@ -435,25 +471,10 @@ function App() {
                                     <div className="h-64 w-1/3 min-w-[200px]">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <PieChart>
-                                                <Pie
-                                                    data={chartData}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    innerRadius={60}
-                                                    outerRadius={80}
-                                                    paddingAngle={5}
-                                                    dataKey="value"
-                                                    stroke="none"
-                                                    cornerRadius={6}
-                                                >
-                                                    {chartData.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                                    ))}
+                                                <Pie data={chartData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none" cornerRadius={6}>
+                                                    {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                                                 </Pie>
-                                                <Tooltip 
-                                                    formatter={(value: any) => formatMoney(Number(value))}
-                                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', backgroundColor: darkMode ? '#1e293b' : 'rgba(255,255,255,0.95)', color: darkMode ? '#fff' : '#334155' }}
-                                                />
+                                                <Tooltip formatter={(value: any) => formatMoney(Number(value))} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
                                             </PieChart>
                                         </ResponsiveContainer>
                                     </div>
@@ -466,7 +487,6 @@ function App() {
                                                 </div>
                                                 <div className="text-right">
                                                      <div className="font-bold text-sm text-slate-800 dark:text-white">{formatMoney(item.value)}</div>
-                                                     <div className="text-[10px] text-slate-400">{Math.round((item.value / stats.expense) * 100)}%</div>
                                                 </div>
                                             </div>
                                         ))}
@@ -475,19 +495,11 @@ function App() {
                             </div>
                         )}
                         
-                        {/* Daily Budget Widget (Inline) */}
-                         {dailyFoodLimit === 0 && (
-                            <DailyBudget 
-                                transactions={transactions} 
-                                limit={dailyFoodLimit} 
-                                onSetLimit={setDailyFoodLimit}
-                                onClick={() => setActiveTab('food-budget')}
-                                currency={currency}
-                            />
+                        {dailyFoodLimit === 0 && (
+                            <DailyBudget transactions={transactions} limit={dailyFoodLimit} onSetLimit={setDailyFoodLimit} onClick={() => setActiveTab('food-budget')} currency={currency} />
                         )}
                     </div>
 
-                    {/* Right Column (4 cols) - Transactions List */}
                     <div className="col-span-12 xl:col-span-4 space-y-6">
                         <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md rounded-[2rem] p-6 border border-white/60 dark:border-white/5 shadow-sm h-full max-h-[calc(100vh-160px)] overflow-hidden flex flex-col">
                             <div className="flex justify-between items-center mb-6 shrink-0">
@@ -504,87 +516,24 @@ function App() {
 
             {activeTab === 'food-budget' && (
                 <div className="animate-slide-in-right">
-                     <FoodBudgetPage 
-                        transactions={transactions}
-                        dailyLimit={dailyFoodLimit}
-                        onSetLimit={setDailyFoodLimit}
-                        onAddTransaction={() => openForm('expense')}
-                        onUpdateTransaction={updateTransaction}
-                        onDeleteTransaction={deleteTransaction}
-                        currency={currency}
-                    />
+                     <FoodBudgetPage transactions={transactions} dailyLimit={dailyFoodLimit} onSetLimit={setDailyFoodLimit} onAddTransaction={() => openForm('expense')} onUpdateTransaction={updateTransaction} onDeleteTransaction={deleteTransaction} currency={currency} />
+                </div>
+            )}
+
+            {activeTab === 'shortcuts' && (
+                <div className="animate-slide-in-right">
+                     <ShortcutsPage shortcuts={shortcuts} onSave={setShortcuts} currency={currency} onUseShortcut={useShortcut} />
                 </div>
             )}
 
           </div>
       </main>
 
-      {/* Hidden Receipt for Export */}
-      <div className="fixed top-[-9999px] left-[-9999px]">
-         <div ref={receiptRef} className="w-[400px] bg-white p-10 font-mono text-slate-800 border-b-8 border-emerald-500">
-             <div className="text-center mb-8">
-                 <h2 className="text-3xl font-black tracking-tight text-slate-900 mb-2">MONEY TRACKER</h2>
-                 <p className="text-xs text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-4 inline-block">Báo cáo tài chính cá nhân</p>
-                 <p className="text-sm font-bold text-slate-400 mt-4">{new Date().toLocaleString('vi-VN')}</p>
-             </div>
-             
-             <div className="bg-slate-50 p-6 rounded-xl space-y-3 mb-8">
-                 <div className="flex justify-between font-bold text-slate-600">
-                     <span>Tổng thu</span>
-                     <span className="text-emerald-600">{formatMoney(stats.income)}</span>
-                 </div>
-                 <div className="flex justify-between font-bold text-slate-600">
-                     <span>Tổng chi</span>
-                     <span className="text-rose-600">{formatMoney(stats.expense)}</span>
-                 </div>
-                 <div className="flex justify-between pt-3 mt-3 border-t-2 border-slate-200 text-lg">
-                     <span className="font-black text-slate-800">SỐ DƯ</span>
-                     <span className="font-black text-slate-900">{formatMoney(stats.balance)}</span>
-                 </div>
-             </div>
-
-             <div className="mb-8">
-                 <p className="text-xs font-bold uppercase mb-4 text-slate-400">Phân bổ chi tiêu</p>
-                 <div className="space-y-4">
-                     {chartData.map((item, idx) => (
-                         <div key={idx}>
-                             <div className="flex justify-between text-xs font-bold mb-1.5">
-                                 <span>{item.name}</span>
-                                 <span>{formatMoney(item.value)}</span>
-                             </div>
-                             <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                 <div className="h-full rounded-full" style={{ width: `${(item.value / stats.expense) * 100}%`, backgroundColor: item.color }}></div>
-                             </div>
-                         </div>
-                     ))}
-                 </div>
-             </div>
-             
-             <div className="text-center mt-12 pt-6 border-t border-dashed border-slate-300">
-                 <p className="text-[10px] text-slate-400 font-medium">Auto-generated by MoneyTracker Desktop</p>
-             </div>
-         </div>
-      </div>
-
-      <SheetSyncModal 
-        isOpen={isSyncModalOpen} 
-        onClose={() => setIsSyncModalOpen(false)} 
-      />
-
-      <DataManagementModal 
-        isOpen={isDataModalOpen}
-        onClose={() => setIsDataModalOpen(false)}
-        onClearTransactions={handleClearTransactions}
-        onClearSettings={handleClearSettings}
-      />
+      <SheetSyncModal isOpen={isSyncModalOpen} onClose={() => setIsSyncModalOpen(false)} />
+      <DataManagementModal isOpen={isDataModalOpen} onClose={() => setIsDataModalOpen(false)} onClearTransactions={handleClearTransactions} onClearSettings={handleClearSettings} />
 
       {formConfig.isOpen && (
-        <TransactionForm 
-          onAdd={addTransaction} 
-          onClose={() => setFormConfig(prev => ({ ...prev, isOpen: false }))}
-          initialType={formConfig.type}
-          currency={currency}
-        />
+        <TransactionForm onAdd={addTransaction} onClose={() => setFormConfig(prev => ({ ...prev, isOpen: false }))} initialType={formConfig.type} currency={currency} />
       )}
     </div>
   );
